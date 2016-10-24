@@ -102,44 +102,17 @@
     (println "chunk-fn2:" global-var-init-statements)
     expr
     ))
-(let* [
-       a (new proteus.Containers$L 2) 
-       b (new proteus.Containers$L 3) 
-       t (new proteus.Containers$O (do (do (. a set 33) nil))) 
-       t (new proteus.Containers$O 
-              (let* [c (new proteus.Containers$L 4) 
-                     _ (new proteus.Containers$O (let* 
-                                                   [d (new proteus.Containers$L 4)] (. d x)))] (. c x)))] (. t x))
-(try (let-mutable [a 2
-              b 3
-              t (do (set! a 33))
-              t (let-mutable [c 4
-                              _ (let-mutable [d 4]
-                                  d)]
-                  c)]
-  t)
-     (catch Exception ex (clojure.stacktrace/print-stack-trace ex))
-     )
 
-
-(let [a (atom 0)]
-  (let-mutable [x :foo]
-
-    (swap! a
-      ;^:local
-      (fn [a]
-        (set! x :bar)
-        (inc a)))
-
-    x))
 (defn block-fn [& args]
   (println "block-fn args:" args)
   (let [local-var-init-statements (select 
-                                    [ALL #(= (safe-some-> %1 first first) :local)]
+                                    [ALL #(= (safe-some-> %1 first) :local)]
                                     args) 
-        r (if (seq local-var-init-statements)
+        r (do
+            (println "local-var-init-statements:" local-var-init-statements)
+            (if (seq local-var-init-statements)
             `(let-mutable ~(vec (transform [ALL] #(conj ['_] %1) args)))
-            `(do ~@args))]
+            `(do ~@args)))]
     (println "block-fn return:" r)
     r
     ))

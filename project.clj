@@ -5,5 +5,5 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [instaparse "1.4.3"]
-                 [proteus "0.1.6"]
+                 [proteus "0.1.7"]
                  [com.rpl/specter "0.13.0"]])
