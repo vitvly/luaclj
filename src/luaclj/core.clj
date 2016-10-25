@@ -95,17 +95,20 @@
                                     [ALL #(= (safe-some-> %1 first) :local)]
                                     args) 
         ;local-var-init-statements (get-var-init-statements :local args)
+        wrap-with-return (fn [arg]
+                           `(when (not :returned?) ~arg))
         transform-fn (fn [arg]
                        (cond (= :local (safe-some-> arg first))
                          `([:local ~(third arg)] ~(fourth arg))
-                         :else `(~'_  ~arg)))
+                         :else `(~'_  ~(wrap-with-return arg))))
         r (cond (seq local-var-init-statements)
             `(let-mutable ~(vec (mapcat identity 
                                         (transform ALL transform-fn args))))
             (next args)
-            `(do ~@args)
-            :else (first args))]
+            `(do ~@(map wrap-with-return args))
+            :else (wrap-with-return (first args)))]
     (println "block-fn return:" r)
+    ;`(when (not :returned?) ~r)
     r
     ))
 
@@ -243,15 +246,15 @@
 
 (pprint (lua-parser (slurp "resources/test/basic1.lua")))
 (proteus/let-mutable 
-  [G__19303 nil G__19304 false 
-   g 55;nil 
-   (do (cond true 
-             (proteus/let-mutable 
-               [l "local_var" 
-                luaclj.core/_ (set! l "local_var_modified") 
-                luaclj.core/_ (do (set! G__19304 true) (println "setting:" l) (set! G__19303 l))])) 
-       (set! g "global_var") (do (set! G__19304 true) (println "g:" g) (set! G__19303 g)))]
-  G__19303)
+  [G__21415 nil 
+   G__21416 false 
+   l nil g nil 
+   _ (do 
+       (clojure.core/when (clojure.core/not G__21416) 
+         (cond true (do (clojure.core/when (clojure.core/not G__21416) set!) (clojure.core/when (clojure.core/not G__21416) (set! l "local_var_modified")) (do (set! G__21416 true) (set! G__21415 l))))) 
+       (clojure.core/when (clojure.core/not G__21416) (set! g "global_var")) 
+       (do (set! G__21416 true) (set! G__21415 g)))] 
+  G__21415)
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
