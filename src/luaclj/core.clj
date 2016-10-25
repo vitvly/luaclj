@@ -3,6 +3,7 @@
             [proteus :refer [let-mutable]]
             [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
+            [clojure.set :as set]
             [com.rpl.specter :refer [select 
                                      ALL
                                      select-first
@@ -21,21 +22,13 @@
   (cons 'some->> (interpose '((fn [arg] 
                               (when (sequential? arg) arg)))
                            args)))
+
+(def third #(nth %1 2))
+(def fourth #(nth %1 3))
+
 (defn leave [odd-or-even-kw items]
   (map second (remove #((if (= odd-or-even-kw :odd) odd? even?) (first %1)) (map #(vector %1 %2) (range) items))))
 
-(defn get-var-init-statements [& args]
-  (let [set-statements (select (walker #(= (safe-some-> %1 first) 'set!)) args)
-        vars (into (hash-set) (map second set-statements))
-        var-init-statements (mapcat identity (map #(vector %1 nil) vars)) ]
-    var-init-statements
-  ))
-(defn get-local-var-init-statements [& args]
-  (let [set-statements (select (walker #(= (safe-some-> %1 first) :local)) args)
-        vars (into (hash-set) (map #(nth %1 2) set-statements))
-        var-init-statements (mapcat identity (map #(vector %1 nil) vars)) ]
-    var-init-statements
-  ))
 (comment
   (let [s [[{:a 1} ['(set! a 3) :b #{'('(set! b 4))}]] ['(['(set! a 6)])]]
         walker-fn #(safe-some->> %1 (some (fn [arg] (= arg 'set!))))
@@ -53,27 +46,20 @@
 
 (defn chunk-fn [& args]
   (println "chunk-fn:" args)
-  (let [global-var-init-statements (get-var-init-statements args)
-        let-statements (if (= (safe-some-> args first first) 
-                              'proteus/let-mutable)
-                         (-> args first second) 
-                         (first args))
-        modify-set-statements-fn (fn [arg]
-                                   (mapcat #(if (= (first %1) :local)
-                                              [(nth %1 2) (nth %1 3)]
-                                              ['_ %1]) arg))
-        walker-fn (fn [arg]
-                    (or (= 'set! (safe-some-> arg first first)) 
-                        (= 'set! (safe-some-> arg first second))))
-        let-statements (transform (walker walker-fn)
-                                  modify-set-statements-fn
-                                  let-statements)
-        modify-let-mutables-fn (fn [arg]
-                                 (println "modify:" (next arg))
-                                 `(let-mutable ~(vec (apply concat (first (next arg))))))
-        let-statements (transform (walker #(= 'proteus/let-mutable (safe-some-> %1 first)))
-                                  modify-let-mutables-fn
-                                  let-statements)
+  (let [set-var-pred #(= 'set! (safe-some-> %1 first))
+        all-vars (set (map second
+                           (select (walker set-var-pred) args)))
+        local-pred #(= :local (safe-some-> %1 first))
+        local-vars (set (map #(second %1) 
+                             (select (walker local-pred) 
+                                     args)))
+        global-vars (set/difference all-vars local-vars)
+        _ (println "global-vars:" all-vars ":" local-vars ":" global-vars)
+        args (transform (walker local-pred) ; Remove occurrences of :local 
+                        second
+                        ;(fn [arg] `(~(second (first arg)) ~(second arg))) 
+                        args)
+        global-var-init-statements (mapcat identity (map #(vector %1 nil) global-vars))
         return-value (gensym)
         returned? (gensym)
         process-return-stmts (fn [arg]
@@ -84,21 +70,21 @@
                                                (first ret-val))]
                                  `(do (set! ~returned? true)
                                       (set! ~return-value ~ret-val))))
+        nested-block `(~'_ ~@args)
         let-statements (transform (walker #(= "return" (safe-some-> %1 first)))
                                   process-return-stmts
-                                  let-statements)
+                                  nested-block)
         process-returned? (fn [arg]
                             returned?
                             )
         let-statements (transform (walker #(= %1 :returned?)) 
-                                    process-returned? 
-                                    let-statements)
-        expr `(let-mutable ~(vec (into [return-value nil
-                                        returned? false] 
-                                       (apply concat global-var-init-statements 
-                                         (next let-statements)
-                                         )))
-                ~return-value)]
+                                  process-returned? 
+                                  let-statements)
+        init-statements (vec (concat [return-value nil
+                                     returned? false] 
+                                    global-var-init-statements)) 
+        let-statements (into init-statements let-statements)
+        expr `(let-mutable ~let-statements ~return-value)]
     (println "chunk-fn2:" global-var-init-statements)
     expr
     ))
@@ -108,11 +94,17 @@
   (let [local-var-init-statements (select 
                                     [ALL #(= (safe-some-> %1 first) :local)]
                                     args) 
-        r (do
-            (println "local-var-init-statements:" local-var-init-statements)
-            (if (seq local-var-init-statements)
-            `(let-mutable ~(vec (transform [ALL] #(conj ['_] %1) args)))
-            `(do ~@args)))]
+        ;local-var-init-statements (get-var-init-statements :local args)
+        transform-fn (fn [arg]
+                       (cond (= :local (safe-some-> arg first))
+                         `([:local ~(third arg)] ~(fourth arg))
+                         :else `(~'_  ~arg)))
+        r (cond (seq local-var-init-statements)
+            `(let-mutable ~(vec (mapcat identity 
+                                        (transform ALL transform-fn args))))
+            (next args)
+            `(do ~@args)
+            :else (first args))]
     (println "block-fn return:" r)
     r
     ))
@@ -250,7 +242,17 @@
    [:explist [:exp [:prefixexp [:var [:Name "g"]]]]]]]]
 
 (pprint (lua-parser (slurp "resources/test/basic1.lua")))
-
+(proteus/let-mutable 
+  [G__19303 nil G__19304 false 
+   g 55;nil 
+   (do (cond true 
+             (proteus/let-mutable 
+               [l "local_var" 
+                luaclj.core/_ (set! l "local_var_modified") 
+                luaclj.core/_ (do (set! G__19304 true) (println "setting:" l) (set! G__19303 l))])) 
+       (set! g "global_var") (do (set! G__19304 true) (println "g:" g) (set! G__19303 g)))]
+  G__19303)
+(eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   (pprint tree)
