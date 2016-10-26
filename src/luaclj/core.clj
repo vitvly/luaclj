@@ -171,7 +171,7 @@
                 (map next (leave :odd (next args)))))
               (= (safe-some-> args first first)
                  :varlist)
-              (apply concat (apply
+              `(do ~@(apply
                 (partial map #(list 'set! %1 %2))
                 (map next (leave :odd args))))
               (= "for" (first args))
@@ -216,47 +216,40 @@
    })
 
 (comment
-[:chunk
- [:block
-  [:stat
-   "if"
-   [:exp [:prefixexp [:var [:Name "true"]]]]
-   "then"
-   [:block
-    [:stat
-     "local"
-     [:namelist [:Name "l"]]
-     "="
-     [:explist [:exp [:LiteralString "'local_var'"]]]]
-    [:stat
-     [:varlist [:var [:Name "l"]]]
-     "="
-     [:explist [:exp [:LiteralString "'local_var_modified'"]]]]
-    [:retstat
-     "return"
-     [:explist [:exp [:prefixexp [:var [:Name "l"]]]]]]]
-   "end"]
-  [:stat
-   [:varlist [:var [:Name "g"]]]
-   "="
-   [:explist [:exp [:LiteralString "'global_var'"]]]]
-  [:retstat
-   "return"
-   [:explist [:exp [:prefixexp [:var [:Name "g"]]]]]]]]
+(do
+   (clojure.core/when (clojure.core/not G__13828) (set! i 2))
+   (clojure.core/when
+    (clojure.core/not G__13828)
+    (set! booleanValue false))
+   (clojure.core/when
+    (clojure.core/not G__13828)
+    (set! multi1 1 set! multi2 true))
+   (clojure.core/when
+    (clojure.core/not G__13828)
+    (cond
+     (> i 3)
+     (proteus/let-mutable
+      [l
+       "local_var"
+       _
+       (clojure.core/when
+        (clojure.core/not G__13828)
+        (do (set! G__13828 true) (set! G__13827 3)))])
+     :else
+     ((clojure.core/when
+       (clojure.core/not G__13828)
+       (do (set! G__13828 true) (set! G__13827 55))))))
+   (clojure.core/when (clojure.core/not G__13828) (set! sum 0))
+   (clojure.core/when
+    (clojure.core/not G__13828)
+    (clojure.core/doseq
+     [j (clojure.core/range 1 100)]
+     (clojure.core/when
+      (clojure.core/not G__13828)
+      (set! sum (+ sum j))))))(pprint (lua-parser (slurp "resources/test/basic1.lua")))
 
-(pprint (lua-parser (slurp "resources/test/basic1.lua")))
-(proteus/let-mutable 
-  [G__21415 nil 
-   G__21416 false 
-   l nil g nil 
-   _ (do 
-       (clojure.core/when (clojure.core/not G__21416) 
-         (cond true (do (clojure.core/when (clojure.core/not G__21416) set!) (clojure.core/when (clojure.core/not G__21416) (set! l "local_var_modified")) (do (set! G__21416 true) (set! G__21415 l))))) 
-       (clojure.core/when (clojure.core/not G__21416) (set! g "global_var")) 
-       (do (set! G__21416 true) (set! G__21415 g)))] 
-  G__21415)
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
+(eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   (pprint tree)
   (prewalk #(do (println %1) %1) tree)

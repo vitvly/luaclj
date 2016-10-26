@@ -2,11 +2,11 @@ i = 2
 booleanValue = false
 multi1, multi2 = 1, true
 
-if i < 3 then
+if i > 3 then
   local l = 'local_var'
   return 3
 else
-  return 0
+  return 55
 end
 
 sum = 0
