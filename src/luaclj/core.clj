@@ -96,6 +96,7 @@
                                     args) 
         ;local-var-init-statements (get-var-init-statements :local args)
         wrap-with-return (fn [arg]
+                           (println "wrapping:" arg)
                            `(when (not :returned?) ~arg))
         transform-fn (fn [arg]
                        (cond (= :local (safe-some-> arg first))
@@ -146,6 +147,26 @@
     :else
     (first args)))
 
+(defn get-while-statement [& args]
+  (println "while-args:" args)
+  (let [while-args (leave :even (first args))]
+    (println "while-args1:" while-args)
+    `(while ~(first while-args)
+       ~(second while-args))
+    ))
+(defmacro repeat-until [test & body]
+  `(loop []
+     ~@body
+     (when (not ~test)
+       (recur))))
+
+(defn get-repeat-statement [& args]
+  (println "while-args:" args)
+  (let [repeat-args (leave :even (first args))]
+    (println "repeat-args1:" repeat-args)
+    `(repeat-until ~(second repeat-args)
+       ~(first repeat-args))
+    ))
 (defn get-for-statement [& args]
   (println "for-args:" args)
   (let [for-args (leave :even (first args))]
@@ -159,7 +180,7 @@
 (defn get-if-statement [& args]
   (let [if-args (leave :even (first args))
         if-args (mapcat identity
-                        (map #(if (next %1) %1 [:else %1])
+                        (map #(if (next %1) %1 [:else (first %1)])
                              (partition-all 2 if-args)))]
     (cons 'cond if-args)
     ))
@@ -174,6 +195,10 @@
               `(do ~@(apply
                 (partial map #(list 'set! %1 %2))
                 (map next (leave :odd args))))
+              (= "while" (first args))
+              (get-while-statement args)
+              (= "repeat" (first args))
+              (get-repeat-statement args)
               (= "for" (first args))
               (get-for-statement args)
               (= "if" (first args))
@@ -216,37 +241,78 @@
    })
 
 (comment
-(do
-   (clojure.core/when (clojure.core/not G__13828) (set! i 2))
-   (clojure.core/when
-    (clojure.core/not G__13828)
-    (set! booleanValue false))
-   (clojure.core/when
-    (clojure.core/not G__13828)
-    (set! multi1 1 set! multi2 true))
-   (clojure.core/when
-    (clojure.core/not G__13828)
-    (cond
-     (> i 3)
-     (proteus/let-mutable
-      [l
-       "local_var"
-       _
+  (proteus/let-mutable
+    [G__15153
+     nil
+     G__15154
+     false
+     i
+     nil
+     sum
+     nil
+     multi1
+     nil
+     multi2
+     nil
+     booleanValue
+     nil
+     _
+     (do
+       (clojure.core/when (clojure.core/not G__15154) (do (set! i 2)))
        (clojure.core/when
-        (clojure.core/not G__13828)
-        (do (set! G__13828 true) (set! G__13827 3)))])
-     :else
-     ((clojure.core/when
-       (clojure.core/not G__13828)
-       (do (set! G__13828 true) (set! G__13827 55))))))
-   (clojure.core/when (clojure.core/not G__13828) (set! sum 0))
-   (clojure.core/when
-    (clojure.core/not G__13828)
-    (clojure.core/doseq
-     [j (clojure.core/range 1 100)]
-     (clojure.core/when
-      (clojure.core/not G__13828)
-      (set! sum (+ sum j))))))(pprint (lua-parser (slurp "resources/test/basic1.lua")))
+         (clojure.core/not G__15154)
+         (do (set! booleanValue false)))
+       (clojure.core/when
+         (clojure.core/not G__15154)
+         (do (set! multi1 1) (set! multi2 true)))
+       (clojure.core/when
+         (clojure.core/not G__15154)
+         (clojure.core/while
+           (< i 5)
+           (clojure.core/when
+             (clojure.core/not G__15154)
+             (do (set! i (+ i 1))))))
+       (clojure.core/when
+         (clojure.core/not G__15154)
+         ("repeat"
+           (clojure.core/when
+             (clojure.core/not G__15154)
+             (do (set! i (+ i 1))))
+           "until"
+           (> i 10)))
+       (clojure.core/when
+         (clojure.core/not G__15154)
+         (cond
+           (> i 10)
+           (clojure.core/when
+             (clojure.core/not G__15154)
+             (do (set! G__15154 true) (set! G__15153 "until")))
+           (> i 3)
+           (proteus/let-mutable
+             [l
+              "local_var"
+              _
+              (clojure.core/when
+                (clojure.core/not G__15154)
+                (do (set! G__15154 true) (set! G__15153 3)))])
+           (== i 2)
+           (clojure.core/when
+             (clojure.core/not G__15154)
+             (do (set! G__15154 true) (set! G__15153 44)))
+           :else
+           (clojure.core/when
+             (clojure.core/not G__15154)
+             (do (set! G__15154 true) (set! G__15153 55)))))
+       (clojure.core/when (clojure.core/not G__15154) (do (set! sum 0)))
+       (clojure.core/when
+         (clojure.core/not G__15154)
+         (clojure.core/doseq
+           [j (clojure.core/range 1 100)]
+           (clojure.core/when
+             (clojure.core/not G__15154)
+             (do (set! sum (+ sum j)))))))]
+    G__15153)
+(pprint (lua-parser (slurp "resources/test/basic.lua")))
 
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
