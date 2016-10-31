@@ -169,12 +169,21 @@
     ))
 (defn get-for-statement [& args]
   (println "for-args:" args)
-  (let [for-args (leave :even (first args))]
+  (let [for-args (leave :even (first args))
+        for-body (if (= (count for-args) 5)
+                   (nth for-args 4)
+                   (nth for-args 3))
+        doseq-stmt `(doseq [~(nth for-args 0) 
+                            ~(if (= (count for-args) 5)
+                               `(range ~(nth for-args 1) 
+                                       ~(nth for-args 2)
+                                       ~(nth for-args 3))
+                               `(range ~(nth for-args 1) 
+                                       ~(nth for-args 2)))]
+                      ~for-body)
+        ]
     (println "for-args1:" for-args)
-    `(doseq [~(nth for-args 0) 
-            (range ~(nth for-args 1) 
-                   ~(nth for-args 2))]
-      ~(nth for-args 3))
+    doseq-stmt
     ))
 
 (defn get-if-statement [& args]
@@ -314,8 +323,8 @@
     G__15153)
 (pprint (lua-parser (slurp "resources/test/basic.lua")))
 
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
+(eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   (pprint tree)
   (prewalk #(do (println %1) %1) tree)
