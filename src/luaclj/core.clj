@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
             [clojure.set :as set]
+            [luaclj.library :refer :all]
             [com.rpl.specter :refer [select 
                                      ALL
                                      select-first
@@ -25,9 +26,15 @@
 
 (def third #(nth %1 2))
 (def fourth #(nth %1 3))
+(defn unwrap [coll]
+  (if (next coll)
+    coll
+    (first coll)))
 
 (defn leave [odd-or-even-kw items]
-  (map second (remove #((if (= odd-or-even-kw :odd) odd? even?) (first %1)) (map #(vector %1 %2) (range) items))))
+  (map second 
+       (remove #((if (= odd-or-even-kw :odd) even? odd?) (first %1)) 
+               (map #(vector %1 %2) (range) items))))
 
 (comment
   (let [s [[{:a 1} ['(set! a 3) :b #{'('(set! b 4))}]] ['(['(set! a 6)])]]
@@ -132,11 +139,11 @@
   (first args))
 
 (defn varlist-fn [& args]
-  (cons :varlist (leave :odd args))
+  (cons :varlist (leave :even args))
   )
 
 (defn explist-fn [& args]
-  (cons :explist (leave :odd args))
+  (cons :explist (leave :even args))
   )
 
 (defn var-fn [& args]
@@ -149,7 +156,7 @@
 
 (defn get-while-statement [& args]
   (println "while-args:" args)
-  (let [while-args (leave :even (first args))]
+  (let [while-args (leave :odd (first args))]
     (println "while-args1:" while-args)
     `(while ~(first while-args)
        ~(second while-args))
@@ -162,32 +169,42 @@
 
 (defn get-repeat-statement [& args]
   (println "while-args:" args)
-  (let [repeat-args (leave :even (first args))]
+  (let [repeat-args (leave :odd (first args))]
     (println "repeat-args1:" repeat-args)
     `(repeat-until ~(second repeat-args)
        ~(first repeat-args))
     ))
 (defn get-for-statement [& args]
   (println "for-args:" args)
-  (let [for-args (leave :even (first args))
-        for-body (if (= (count for-args) 5)
-                   (nth for-args 4)
-                   (nth for-args 3))
-        doseq-stmt `(doseq [~(nth for-args 0) 
-                            ~(if (= (count for-args) 5)
-                               `(range ~(nth for-args 1) 
-                                       ~(nth for-args 2)
-                                       ~(nth for-args 3))
-                               `(range ~(nth for-args 1) 
-                                       ~(nth for-args 2)))]
+  (let [for-args (leave :odd (first args))
+        numeric? (not= (safe-some-> for-args first first) :namelist)
+        for-body (if numeric?
+                   (if (= (count for-args) 5)
+                     (nth for-args 4)
+                     (nth for-args 3))
+                   (nth for-args 2))
+        for-condition  (if numeric?
+                         [(nth for-args 0) 
+                        (if (= (count for-args) 5)
+                           `(range ~(nth for-args 1) 
+                                   ~(nth for-args 2)
+                                   ~(nth for-args 3))
+                           `(range ~(nth for-args 1) 
+                                   ~(nth for-args 2)))]
+                         [(vec (leave :even (next (first for-args))))
+                          (unwrap (leave :even (next (second for-args))))
+                          ]
+                         )
+        doseq-stmt `(doseq ~for-condition
                       ~for-body)
         ]
+    (println "for-condition:" for-condition)
     (println "for-args1:" for-args)
     doseq-stmt
     ))
 
 (defn get-if-statement [& args]
-  (let [if-args (leave :even (first args))
+  (let [if-args (leave :odd (first args))
         if-args (mapcat identity
                         (map #(if (next %1) %1 [:else (first %1)])
                              (partition-all 2 if-args)))]
@@ -198,12 +215,12 @@
   (let [r (cond (= (safe-some-> args first) "local")
               (apply concat (apply
                 (partial map #(list :local 'set! %1 %2))
-                (map next (leave :odd (next args)))))
+                (map next (leave :even (next args)))))
               (= (safe-some-> args first first)
                  :varlist)
               `(do ~@(apply
                 (partial map #(list 'set! %1 %2))
-                (map next (leave :odd args))))
+                (map next (leave :even args))))
               (= "while" (first args))
               (get-while-statement args)
               (= "repeat" (first args))
@@ -231,6 +248,49 @@
   (println "namelist:" args)
   (into [:namelist] args))
 
+(defn field-fn [& args]
+  (cond (= (safe-some-> args first first) "[")
+        [(nth args 1) (nth args 4)]
+        (= (count args) 3)
+        [(first args) (third args)]
+    :else (first args)))
+
+(defn fieldsep-fn [& args]
+  (first args))
+
+(defn fieldlist-fn [& args]
+  (let [r (reduce
+            (fn [acc value]
+              (let [index (first acc)
+                    fields (second acc)
+                    index (if (sequential? value) index (inc index))
+                    value (if (sequential? value) value [index value])]
+
+                [index (conj fields value)]))
+            [0 []]
+            (leave :even args))]
+    (println "fieldlist:" r)
+    (second r)))
+
+(defn args-fn [& args]
+  (case (first args)
+    "(" (second args) ;explist
+    "{" (second args) ;tableconstructor
+    (first args) ;LiteralString
+    ))
+
+(defn functioncall-fn [& args]
+  (println "functioncall:" args)
+  (let [fn-args (if (= (safe-some-> args second first) :explist)
+                      (or (-> args second next) [])
+                      [(second args)])]
+    `(~(first args) ~@fn-args)))
+
+(defn tableconstructor-fn [& args]
+  (println "table:" args)
+  (into (hash-map) (second args)))
+
+
 (def transform-map
   {:chunk chunk-fn
    :block block-fn
@@ -245,82 +305,17 @@
    :exp exp-fn
    :prefixexp prefixexp-fn
    :var var-fn
+   :field field-fn
+   :fieldlist fieldlist-fn
+   :tableconstructor tableconstructor-fn
+   :args args-fn
+   :functioncall functioncall-fn
    :explist explist-fn
    :varlist varlist-fn
    })
 
 (comment
-  (proteus/let-mutable
-    [G__15153
-     nil
-     G__15154
-     false
-     i
-     nil
-     sum
-     nil
-     multi1
-     nil
-     multi2
-     nil
-     booleanValue
-     nil
-     _
-     (do
-       (clojure.core/when (clojure.core/not G__15154) (do (set! i 2)))
-       (clojure.core/when
-         (clojure.core/not G__15154)
-         (do (set! booleanValue false)))
-       (clojure.core/when
-         (clojure.core/not G__15154)
-         (do (set! multi1 1) (set! multi2 true)))
-       (clojure.core/when
-         (clojure.core/not G__15154)
-         (clojure.core/while
-           (< i 5)
-           (clojure.core/when
-             (clojure.core/not G__15154)
-             (do (set! i (+ i 1))))))
-       (clojure.core/when
-         (clojure.core/not G__15154)
-         ("repeat"
-           (clojure.core/when
-             (clojure.core/not G__15154)
-             (do (set! i (+ i 1))))
-           "until"
-           (> i 10)))
-       (clojure.core/when
-         (clojure.core/not G__15154)
-         (cond
-           (> i 10)
-           (clojure.core/when
-             (clojure.core/not G__15154)
-             (do (set! G__15154 true) (set! G__15153 "until")))
-           (> i 3)
-           (proteus/let-mutable
-             [l
-              "local_var"
-              _
-              (clojure.core/when
-                (clojure.core/not G__15154)
-                (do (set! G__15154 true) (set! G__15153 3)))])
-           (== i 2)
-           (clojure.core/when
-             (clojure.core/not G__15154)
-             (do (set! G__15154 true) (set! G__15153 44)))
-           :else
-           (clojure.core/when
-             (clojure.core/not G__15154)
-             (do (set! G__15154 true) (set! G__15153 55)))))
-       (clojure.core/when (clojure.core/not G__15154) (do (set! sum 0)))
-       (clojure.core/when
-         (clojure.core/not G__15154)
-         (clojure.core/doseq
-           [j (clojure.core/range 1 100)]
-           (clojure.core/when
-             (clojure.core/not G__15154)
-             (do (set! sum (+ sum j)))))))]
-    G__15153)
+  
 (pprint (lua-parser (slurp "resources/test/basic.lua")))
 
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
