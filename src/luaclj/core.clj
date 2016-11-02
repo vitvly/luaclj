@@ -148,10 +148,12 @@
 
 (defn var-fn [& args]
   (println "var-fn args:" args)
-  (cond (or (contains? (set args) "[")
-            (contains? (set args) "."))
+  (cond (= (safe-some-> args second) "[")
     ; Table access
     `(assoc ~(first args) ~(nth args 2))
+    (= (safe-some-> args second) ".")
+    ; Table access through string keys
+    `(assoc ~(first args) ~(str (nth args 2)))
     :else
     (first args)))
 
