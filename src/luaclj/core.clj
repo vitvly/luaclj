@@ -37,7 +37,7 @@
                (map #(vector %1 %2) (range) items))))
 
 (comment
-  (let [s [[{:a 1} ['(set! a 3) :b #{'('(set! b 4))}]] ['(['(set! a 6)])]]
+(let [s [[{:a 1} ['(set! a 3) :b #{'('(set! b 4))}]] ['(['(set! a 6)])]]
         walker-fn #(safe-some->> %1 (some (fn [arg] (= arg 'set!))))
         t-fn (fn [arg] (println "t-fn:" arg))]
     #_(select (walker walker-fn) s)
@@ -259,11 +259,14 @@
   (into [:namelist] args))
 
 (defn field-fn [& args]
-  (cond (= (safe-some-> args first first) "[")
-        [(nth args 1) (nth args 4)]
-        (= (count args) 3)
-        [(first args) (third args)]
-    :else (first args)))
+  (println "field-fn:" args)
+  (let [r (cond (= (safe-some-> args first) "[")
+                [(nth args 1) (nth args 4)]
+                (= (count args) 3)
+                [(str (first args)) (third args)]
+                :else (first args))]
+    (println "field-fn r:" r)
+    r))
 
 (defn fieldsep-fn [& args]
   (first args))
