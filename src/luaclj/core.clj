@@ -147,10 +147,11 @@
   )
 
 (defn var-fn [& args]
+  (println "var-fn args:" args)
   (cond (or (contains? (set args) "[")
             (contains? (set args) "."))
     ; Table access
-    (get (first args) (nth args 2))
+    `(assoc ~(first args) ~(nth args 2))
     :else
     (first args)))
 
@@ -212,14 +213,23 @@
     ))
 (defn stat-fn [& args]
   (println "stat-fn:" args)
-  (let [r (cond (= (safe-some-> args first) "local")
+  (let [var-set-fn (fn [local? name value]
+                     (let [set-stmt (if (= (safe-some-> name first) 'clojure.core/assoc)
+                                      `(set! ~(second name)
+                                             ~(apply list (conj (vec name) value)))
+                                      `(set! ~name ~value))
+                           set-stmt (if local? 
+                                      (conj set-stmt :local) 
+                                      set-stmt)]
+                       set-stmt))
+        r (cond (= (safe-some-> args first) "local")
               (apply concat (apply
-                (partial map #(list :local 'set! %1 %2))
+                (partial map (partial var-set-fn true))
                 (map next (leave :even (next args)))))
               (= (safe-some-> args first first)
                  :varlist)
               `(do ~@(apply
-                (partial map #(list 'set! %1 %2))
+                (partial map (partial var-set-fn false))
                 (map next (leave :even args))))
               (= "while" (first args))
               (get-while-statement args)
@@ -316,7 +326,7 @@
 
 (comment
   
-(pprint (lua-parser (slurp "resources/test/basic.lua")))
+(pprint (lua-parser (slurp "resources/test/for.lua")))
 
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
