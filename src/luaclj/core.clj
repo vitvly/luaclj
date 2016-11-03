@@ -114,6 +114,8 @@
                                         (transform ALL transform-fn args))))
             (next args)
             `(do ~@(map wrap-with-return args))
+            (= (safe-some-> args first first) 'clojure.core/fn)
+            (first args)
             :else (wrap-with-return (first args)))]
     (println "block-fn return:" r)
     ;`(when (not :returned?) ~r)
@@ -394,8 +396,7 @@
       "end"]]]]
 (pprint (lua-parser (slurp "resources/test/function.lua")))
 (pprint (lua-parser (slurp "resources/test/for.lua")))
-
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
+(eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
