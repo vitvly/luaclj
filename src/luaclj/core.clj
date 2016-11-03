@@ -213,6 +213,14 @@
                              (partition-all 2 if-args)))]
     (cons 'cond if-args)
     ))
+
+(defn get-fn-statement [& args]
+  (println "get-fn-statement" args)
+  (let [fn-name (second (first args))
+        fn-args (vec (first (third (first args))))
+        fn-body (second (third (first args)))]
+    `(fn ~fn-name ~fn-args ~fn-body)))
+
 (defn stat-fn [& args]
   (println "stat-fn:" args)
   (let [var-set-fn (fn [local? name value]
@@ -241,6 +249,10 @@
               (get-for-statement args)
               (= "if" (first args))
               (get-if-statement args)
+              (= "function" (first args))
+              (get-fn-statement args)
+              (= "do" (first args))
+              (second args)
               :else
               args)]
     (println "stat-fn return:" r)
@@ -301,6 +313,16 @@
                       [(second args)])]
     `(~(first args) ~@fn-args)))
 
+(defn funcname-fn [& args]
+  (first args))
+
+(defn funcbody-fn [& args]
+  (leave :odd args))
+
+(defn parlist-fn [& args]
+  (println "parlist-fn:" args)
+  (leave :even (next (first args))))
+
 (defn tableconstructor-fn [& args]
   (println "table:" args)
   (into (hash-map) (second args)))
@@ -325,15 +347,58 @@
    :tableconstructor tableconstructor-fn
    :args args-fn
    :functioncall functioncall-fn
+   :funcname funcname-fn
+   :funcbody funcbody-fn
+   :parlist parlist-fn
    :explist explist-fn
    :varlist varlist-fn
    })
 
 (comment
   
+  [:chunk
+   [:block
+    [:stat
+     "function"
+     [:funcname [:Name "test"]]
+     [:funcbody
+      "("
+      [:parlist [:namelist [:Name "arg1"] "," [:Name "arg2"]]]
+      ")"
+      [:block
+       [:stat
+        "local"
+        [:namelist [:Name "e"]]
+        "="
+        [:explist [:exp [:Numeral "2" "." "718"]]]]
+       [:stat
+        "do"
+        [:block
+         [:stat
+          "local"
+          [:namelist [:Name "pi"]]
+          "="
+          [:explist [:exp [:Numeral "3" "." "14159"]]]]
+         [:stat
+          [:varlist [:var [:Name "e"]]]
+          "="
+          [:explist
+           [:exp
+            [:exp [:prefixexp [:var [:Name "e"]]]]
+            [:binop "+"]
+            [:exp [:prefixexp [:var [:Name "pi"]]]]]]]]
+        "end"]
+       [:retstat
+        "return"
+        [:explist [:exp [:prefixexp [:var [:Name "e"]]]]]]]
+      "end"]]]]
+(pprint (lua-parser (slurp "resources/test/function.lua")))
 (pprint (lua-parser (slurp "resources/test/for.lua")))
 
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+  
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   (pprint tree)
