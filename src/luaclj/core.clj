@@ -7,8 +7,12 @@
             [luaclj.library :refer :all]
             [com.rpl.specter :refer [select 
                                      ALL
+                                     LAST
+                                     STAY
                                      select-first
                                      pred
+                                     if-path
+                                     cond-path
                                      subselect 
                                      transform 
                                      walker]]
@@ -50,9 +54,8 @@
   )
 (defmacro or= [arg values]
   `(or ~@(map #(= arg %1) values)))
-
-(defn chunk-fn [& args]
-  (println "chunk-fn:" args)
+(defn post-process-blocks [& args]
+  (println "post-process-blocks" args)
   (let [set-var-pred #(= 'set! (safe-some-> %1 first))
         all-vars (set (map second
                            (select (walker set-var-pred) args)))
@@ -92,9 +95,32 @@
                                     global-var-init-statements)) 
         let-statements (into init-statements let-statements)
         expr `(let-mutable ~let-statements ~return-value)]
-    (println "chunk-fn2:" global-var-init-statements)
+    (println "post-process-blocks out:" let-statements)
+    ;(println "chunk-fn3:" global-var-init-statements)
     expr
     ))
+
+(comment
+
+  (select
+    [ALL
+     (if-path (pred #(= (safe-some-> %1 first) 'clojure.core/fn))
+             LAST
+             STAY)]
+              
+    `((clojure.core/fn :a :b)
+      (let-mutable [:a :b])))
+  )
+(defn chunk-fn [& args]
+  (println "chunk-fn:" args)
+  (let [r (transform [ALL 
+                (if-path (pred #(= (safe-some-> %1 first) 'clojure.core/fn))
+                         LAST
+                         STAY) ]
+               #(post-process-blocks %1)
+               args)]
+    (println "chunk-fn result:" r)
+    (first (transform [ALL] #(apply list %1) r))))
 
 (defn block-fn [& args]
   (println "block-fn args:" args)
@@ -394,8 +420,65 @@
         "return"
         [:explist [:exp [:prefixexp [:var [:Name "e"]]]]]]]
       "end"]]]]
+
+((proteus/let-mutable
+  [G__16357
+   nil
+   G__16358
+   false
+   t
+   nil
+   t1
+   nil
+   sum
+   nil
+   key
+   nil
+   t2
+   nil
+   _
+   (do
+    (clojure.core/when (clojure.core/not G__16358) (do (set! sum 0)))
+    (clojure.core/when
+     (clojure.core/not G__16358)
+     (clojure.core/doseq
+      [j (clojure.core/range 1 100)]
+      (clojure.core/when
+       (clojure.core/not G__16358)
+       (do (set! sum (+ sum j))))))
+    (clojure.core/when
+     (clojure.core/not G__16358)
+     (do (set! t {1 1, 2 10, 3 30})))
+    (clojure.core/when
+     (clojure.core/not G__16358)
+     (do (set! t (clojure.core/assoc t "a" 9))))
+    (clojure.core/when (clojure.core/not G__16358) (do (set! key 22)))
+    (clojure.core/when
+     (clojure.core/not G__16358)
+     (do (set! t1 {"a" 2, "b" 3, "c" 4})))
+    (clojure.core/when
+     (clojure.core/not G__16358)
+     (do (set! t2 {key 10, "a" 20, "b" 30, "c" 40})))
+    (clojure.core/when
+     (clojure.core/not G__16358)
+     (do (set! t2 (clojure.core/assoc t2 "a" 30))))
+    (clojure.core/when
+     (clojure.core/not G__16358)
+     (clojure.core/doseq
+      [[i v] (ipairs t2)]
+      (clojure.core/when
+       (clojure.core/not G__16358)
+       (do (set! sum (+ sum v))))))
+    (clojure.core/when
+     (clojure.core/not G__16358)
+     (do (set! G__16358 true) (set! G__16357 sum))))]
+  G__16357))
+
+
 (pprint (lua-parser (slurp "resources/test/function.lua")))
-(pprint (lua-parser (slurp "resources/test/for.lua")))
+(eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
+(eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
+(eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
