@@ -150,6 +150,8 @@
 
 (defn symbol-fn [& args]
    (read-string (first args)))
+(defn numeral-fn [& args]
+  (Double/parseDouble (str/join args)))
 (defn string-fn [& args]
   (println "string:" args)
   (.substring (first args) 1 (dec (count (first args)))))
@@ -361,7 +363,7 @@
    :block block-fn
    :stat stat-fn
    :retstat retstat-fn
-   :Numeral symbol-fn
+   :Numeral numeral-fn
    :binop binop-or-unop-fn
    :unop binop-or-unop-fn
    :LiteralString string-fn
@@ -476,6 +478,11 @@
 
 
 (pprint (lua-parser (slurp "resources/test/function.lua")))
+
+
+(def test-fn (eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua")))))
+(test-fn 4 5)
+
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
