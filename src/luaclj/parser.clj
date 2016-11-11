@@ -156,12 +156,15 @@
 
 (defn exp-fn [& args]
   (println "exp-fn args:" args)
-  (cond (= 3 (count args))
+  (let [ r (cond (= 3 (count args))
     (list (nth args 1) (nth args 0) (nth args 2))
     (= 2 (count args))
     (list (nth args 1) (nth args 0))
     :else
-    (first args)))
+    (first args))]
+    (println "exp-fn result:" r)
+    r
+    ))
 
 (defn prefixexp-fn [& args]
   (first args))
@@ -175,7 +178,7 @@
   )
 
 (defn var-fn [& args]
-  (println "var-fn args:" args)
+  ;(println "var-fn args:" args)
   (cond (= (safe-some-> args second) "[")
     ; Table access
     `(assoc ~(first args) ~(nth args 2))
@@ -247,6 +250,7 @@
   (let [fn-name (second (first args))
         fn-args (vec (first (third (first args))))
         fn-body (second (third (first args)))]
+    (println "fn-body:" (first (third (first args))) ":" (second (third (first args))))
     `(fn ~fn-name ~fn-args ~fn-body)))
 
 (defn stat-fn [& args]
@@ -282,7 +286,7 @@
               (= "do" (first args))
               (second args)
               :else
-              args)]
+              (first args))]
     (println "stat-fn return:" r)
     ;`(:stat ~r)
     ;`(when (not :returned?) ~r)
@@ -329,31 +333,53 @@
 
 (defn args-fn [& args]
   (case (first args)
-    "(" (second args) ;explist
-    "{" (second args) ;tableconstructor
+    "(" (if (= (second args) ")") 
+          []
+          (second args)) ;explist
+    ;"{" (if (= (second args) "}") 
+          ;{}
+          ;(second args)) ;tableconstructor
     (first args) ;LiteralString
     ))
 
 (defn functioncall-fn [& args]
   (println "functioncall:" args)
-  (let [fn-args (if (= (safe-some-> args second first) :explist)
-                      (or (-> args second next) [])
-                      [(second args)])]
+  (let [fn-args (if (or
+                      (= (safe-some-> args second) [])
+                      (= (safe-some-> args second first) :explist))
+                  (or (-> args second next) [])
+                  [(second args)])]
     `(~(first args) ~@fn-args)))
 
 (defn funcname-fn [& args]
   (first args))
 
 (defn funcbody-fn [& args]
-  (leave :odd args))
+  (println "funcbody-fn in:" args)
+  (let [r (remove #(or= %1 
+                ["(" ")" "end"]) args)
+        r (do
+            (println "funcbody:" r)
+            (if (next r) r (conj r [])))]
+    (println "funcbody-fn result:" r)
+    r
+    ))
 
 (defn parlist-fn [& args]
   (println "parlist-fn:" args)
   (leave :even (next (first args))))
 
+
+(defn functiondef-fn [& args]
+  (let [fn-args (vec (first (second args)))
+        fn-body (second (second args))]
+  `(fn ~fn-args ~fn-body)))
+
 (defn tableconstructor-fn [& args]
   (println "table:" args)
-  (into (hash-map) (second args)))
+  (if (= 3 (count args))
+    (into (hash-map) (second args))
+    {}))
 
 
 (def transform-map
@@ -377,118 +403,122 @@
    :functioncall functioncall-fn
    :funcname funcname-fn
    :funcbody funcbody-fn
+   :functiondef functiondef-fn
    :parlist parlist-fn
    :explist explist-fn
    :varlist varlist-fn
    })
 
 (comment
-  
   [:chunk
    [:block
     [:stat
      "function"
-     [:funcname [:Name "test"]]
+     [:funcname [:Name "test1"]]
      [:funcbody
       "("
-      [:parlist [:namelist [:Name "arg1"] "," [:Name "arg2"]]]
       ")"
-      [:block
-       [:stat
-        "local"
-        [:namelist [:Name "e"]]
-        "="
-        [:explist [:exp [:Numeral "2" "." "718"]]]]
-       [:stat
-        "do"
-        [:block
-         [:stat
-          "local"
-          [:namelist [:Name "pi"]]
-          "="
-          [:explist [:exp [:Numeral "3" "." "14159"]]]]
-         [:stat
-          [:varlist [:var [:Name "e"]]]
-          "="
-          [:explist
-           [:exp
-            [:exp [:prefixexp [:var [:Name "e"]]]]
-            [:binop "+"]
-            [:exp [:prefixexp [:var [:Name "pi"]]]]]]]]
-        "end"]
-       [:retstat
-        "return"
-        [:explist [:exp [:prefixexp [:var [:Name "e"]]]]]]]
-      "end"]]]]
-
-((proteus/let-mutable
-  [G__16357
-   nil
-   G__16358
-   false
-   t
-   nil
-   t1
-   nil
-   sum
-   nil
-   key
-   nil
-   t2
-   nil
-   _
-   (do
-    (clojure.core/when (clojure.core/not G__16358) (do (set! sum 0)))
-    (clojure.core/when
-     (clojure.core/not G__16358)
-     (clojure.core/doseq
-      [j (clojure.core/range 1 100)]
-      (clojure.core/when
-       (clojure.core/not G__16358)
-       (do (set! sum (+ sum j))))))
-    (clojure.core/when
-     (clojure.core/not G__16358)
-     (do (set! t {1 1, 2 10, 3 30})))
-    (clojure.core/when
-     (clojure.core/not G__16358)
-     (do (set! t (clojure.core/assoc t "a" 9))))
-    (clojure.core/when (clojure.core/not G__16358) (do (set! key 22)))
-    (clojure.core/when
-     (clojure.core/not G__16358)
-     (do (set! t1 {"a" 2, "b" 3, "c" 4})))
-    (clojure.core/when
-     (clojure.core/not G__16358)
-     (do (set! t2 {key 10, "a" 20, "b" 30, "c" 40})))
-    (clojure.core/when
-     (clojure.core/not G__16358)
-     (do (set! t2 (clojure.core/assoc t2 "a" 30))))
-    (clojure.core/when
-     (clojure.core/not G__16358)
-     (clojure.core/doseq
-      [[i v] (ipairs t2)]
-      (clojure.core/when
-       (clojure.core/not G__16358)
-       (do (set! sum (+ sum v))))))
-    (clojure.core/when
-     (clojure.core/not G__16358)
-     (do (set! G__16358 true) (set! G__16357 sum))))]
-  G__16357))
-
-
-(pprint (lua-parser (slurp "resources/test/function.lua")))
+      [:block [:retstat "return" [:explist [:exp [:Numeral "5"]]]]]
+      "end"]]
+    [:stat
+     "function"
+     [:funcname [:Name "test2"]]
+     [:funcbody
+      "("
+      ")"
+      [:block [:retstat "return" [:explist [:exp [:Numeral "7"]]]]]
+      "end"]]
+    [:stat
+     [:varlist [:var [:Name "a_fn"]]]
+     "="
+     [:explist
+      [:exp
+       [:functiondef
+        "function"
+        [:funcbody
+         "("
+         ")"
+         [:block
+          [:retstat
+           "return"
+           [:explist
+            [:exp
+             [:exp
+              [:prefixexp
+               [:functioncall
+                [:prefixexp [:var [:Name "test1"]]]
+                [:args "(" ")"]]]]
+             [:binop "+"]
+             [:exp
+              [:prefixexp
+               [:functioncall
+                [:prefixexp [:var [:Name "test2"]]]
+                [:args "(" ")"]]]]]]]]
+         "end"]]]]]
+    [:stat
+     [:varlist [:var [:Name "b_fn"]]]
+     "="
+     [:explist
+      [:exp
+       [:functiondef
+        "function"
+        [:funcbody
+         "("
+         [:parlist [:namelist [:Name "arg"]]]
+         ")"
+         [:block
+          [:retstat
+           "return"
+           [:explist
+            [:exp
+             [:exp [:prefixexp [:var [:Name "arg"]]]]
+             [:binop "+"]
+             [:exp
+              [:exp
+               [:prefixexp
+                [:functioncall
+                 [:prefixexp [:var [:Name "test1"]]]
+                 [:args "(" ")"]]]]
+              [:binop "+"]
+              [:exp
+               [:prefixexp
+                [:functioncall
+                 [:prefixexp [:var [:Name "test2"]]]
+                 [:args "(" ")"]]]]]]]]]
+         "end"]]]]]
+    [:stat
+     [:functioncall
+      [:prefixexp [:var [:Name "print"]]]
+      [:args
+       "("
+       [:explist
+        [:exp
+         [:exp
+          [:prefixexp
+           [:functioncall
+            [:prefixexp [:var [:Name "a_fn"]]]
+            [:args "(" ")"]]]]
+         [:binop "+"]
+         [:exp
+          [:prefixexp
+           [:functioncall
+            [:prefixexp [:var [:Name "b_fn"]]]
+            [:args
+             "("
+             [:explist [:exp [:prefixexp [:var [:Name "arg"]]]]]
+             ")"]]]]]]
+       ")"]]]]]
+ (pprint (lua-parser (slurp "resources/test/function1.lua")))
 
 
 (def test-fn (eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua")))))
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua"))))
+(eval (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua"))))
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
   
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua"))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
