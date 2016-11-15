@@ -17,6 +17,7 @@
                                      multi-path
                                      subselect 
                                      transform 
+                                     codewalker
                                      walker]]
             [clojure.walk :as walk :refer [prewalk postwalk]]))
 
@@ -40,43 +41,21 @@
   (println "post-process-blocks" args)
   (let [set-var-pred #(= 'set! (safe-some-> %1 first))
         all-vars (set (map second
-                           (select (walker set-var-pred) args)))
+                           (select (codewalker set-var-pred) args)))
         local-pred #(= :local (safe-some-> %1 first))
         local-vars (set (map #(second %1) 
-                             (select (walker local-pred) 
+                             (select (codewalker local-pred) 
                                      args)))
         global-vars (set/difference all-vars local-vars)
         _ (println "global-vars:" all-vars ":" local-vars ":" global-vars)
-        args (transform (walker local-pred) ; Remove occurrences of :local 
+        args (transform (codewalker local-pred) ; Remove occurrences of :local 
                         second
                         ;(fn [arg] `(~(second (first arg)) ~(second arg))) 
                         args)
         global-var-init-statements (mapcat identity (map #(vector %1 nil) global-vars))
-        return-value (gensym)
-        returned? (gensym)
-        process-return-stmts (fn [arg]
-                               (println "Process-return-stmts:" arg)
-                               (let [ret-val (next (second arg))
-                                     ret-val (if (next ret-val) 
-                                               (vec ret-val) 
-                                               (first ret-val))]
-                                 `(do (set! ~returned? true)
-                                      (set! ~return-value ~ret-val))))
         nested-block `(~'_ ~@args)
-        let-statements (transform (walker #(= "return" (safe-some-> %1 first)))
-                                  process-return-stmts
-                                  nested-block)
-        process-returned? (fn [arg]
-                            returned?
-                            )
-        let-statements (transform (walker #(= %1 :returned?)) 
-                                  process-returned? 
-                                  let-statements)
-        init-statements (vec (concat [return-value nil
-                                     returned? false] 
-                                    global-var-init-statements)) 
-        let-statements (into init-statements let-statements)
-        expr `(let-mutable ~let-statements ~return-value)]
+        let-statements (into (vec global-var-init-statements) nested-block)
+        expr `(process-return (let-mutable ~let-statements))]
     (println "post-process-blocks out:" let-statements)
     ;(println "chunk-fn3:" global-var-init-statements)
     expr
@@ -100,7 +79,7 @@
   (println "chunk-fn:" args)
   (let [fn-pred #(= (safe-some-> %1 first) 'clojure.core/fn)
         r (transform 
-            [(walker fn-pred) LAST]
+            [(codewalker fn-pred) LAST]
             #_[ALL 
                (if-path (pred fn-pred)
                         LAST
@@ -123,7 +102,9 @@
         ;local-var-init-statements (get-var-init-statements :local args)
         wrap-with-return (fn [arg]
                            (println "wrapping:" arg)
-                           `(when (not :returned?) ~arg))
+                           (with-meta arg {:stat true})
+                           ;`(when (not :returned?) ~arg)
+                           )
         transform-fn (fn [arg]
                        (cond (= :local (safe-some-> arg first))
                          `([:local ~(third arg)] ~(fourth arg))
@@ -295,10 +276,14 @@
 (defn binop-or-unop-fn [& args]
   (symbol (first args)))
 (defn retstat-fn [& args]
-  (println "restat args:" args)
+  (println "retstat args:" args)
   ;`(_ ~args)
-  args
-  )
+  (let [ret-val (next (first (next args)))
+        ret-val (do
+                  (println "ret-val:" ret-val)
+                  (if (next ret-val) (vec ret-val)
+                  (first ret-val)))]
+        `(~'return ~ret-val)))
 
 (defn namelist-fn [& args]
   (println "namelist:" args)
@@ -509,16 +494,49 @@
              ")"]]]]]]
        ")"]]]]]
  (pprint (lua-parser (slurp "resources/test/function1.lua")))
+(luaclj.util/process-return 
+  (proteus/let-mutable 
+    [g nil 
+     _ (do 
+         (cond true 
+               (proteus/let-mutable 
+                 [l "local_var" 
+                  _ (do (set! l "local_var_modified")) 
+                  _ (return l)])) 
+         (do (set! g "global_var")) (return g))]))
 
+(luaclj.util/process-return
+  (proteus/let-mutable
+   [g
+    nil
+    _
+    (do
+     (cond
+      true
+      (proteus/let-mutable
+       [l
+        "local_var"
+        _
+        (do (set! l "local_var_modified"))
+        _
+        (return l)]))
+     (do (set! g "global_var"))
+     (return g))]))
 
 (def test-fn (eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua")))))
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua"))))
+(def fn1 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua")))))
+(fn1)
+((eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua")))))
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
   
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
