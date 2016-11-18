@@ -3,6 +3,7 @@
     [riddley.walk :refer [walk-exprs]]
     [clojure.walk :as walk :refer [prewalk postwalk]]
     [proteus :refer [let-mutable]]
+    [clojure.zip :as zip]
     [com.rpl.specter :refer [select 
                              ALL
                              LAST
@@ -42,6 +43,18 @@
        (remove #((if (= odd-or-even-kw :odd) even? odd?) (first %1)) 
                (map #(vector %1 %2) (range) items))))
 
+(defn zipwalker [code pred-fn edit-fn]
+  (zip/node 
+    (loop [c (zip/zipper sequential? seq (fn [_ c] c) code)]
+      (if (zip/end? c)
+        c
+        (let [curr-loc (if (pred-fn (zip/node c)) 
+                           (do (println "editing") (zip/edit c edit-fn))
+                           (do (println "keeping") c))
+              _ (println "curr-loc:" (zip/node curr-loc))
+              next-loc (zip/next curr-loc)]
+          (println "next-loc:" (zip/node next-loc))
+          (recur next-loc))))))
 (defmacro process-return [code]
   (let [return-value (gensym)]
     (letfn [(predicate-fn  [arg]
@@ -160,4 +173,30 @@
            '(do
                    (if (< 3 5) (return "something")) 
                    [1 2 3]))
+(sequential? [1 2])
+(zipwalker 
+  `(clojure.core/fn
+     anonymous-chunk
+     []
+     (proteus/let-mutable
+       [(do
+          (set! test1 (clojure.core/fn test1 [] (return 5)))
+          (do (set! a_fn (clojure.core/fn [] (return (+ (test1) (test2)))))))]))
+  (fn [arg]
+    (println "arg:" arg)
+    (= (safe-some-> arg first) 'clojure.core/fn))
+  (fn [arg]
+    (let [fn-name (when (= (count arg) 4) (second arg))
+          fn-args (if (= (count arg) 4) (third arg)
+                    (second arg))
+          fn-body (if (= (count arg) 4) (fourth arg)
+                    (third arg)) 
+          fn-stmt (if fn-name
+                    `(fn ~fn-name ~fn-args (process-return ~fn-body))
+                    `(fn ~fn-args (process-return ~fn-body)))]
+      fn-stmt)))
+(zip/next (zip/seq-zip '(do
+                          (when true :a)
+                          (when false :b))))
+
 )
