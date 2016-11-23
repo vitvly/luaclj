@@ -73,7 +73,8 @@
                                   `(fn ~fn-name ~fn-args (process-return ~fn-body))
                                   `(fn ~fn-args (process-return ~fn-body)))]
                     fn-stmt))
-        expr (zipwalker expr pred-fn edit-fn )]
+        expr (zipwalker expr pred-fn edit-fn)]
+    (println "final chunk:" (macroexpand expr))
     expr))
 
   ;`(fn ~'anonymous-chunk [] ~(post-process-blocks (first args)))
@@ -250,7 +251,8 @@
         fn-name (second fn-def)
         fn-args (vec (first (third fn-def)))
         fn-body (second (third fn-def))
-        fn-stmt `(set! ~fn-name (fn ~fn-name ~fn-args ~fn-body))]
+        fn-signature `(fn ~fn-name ~fn-args ~fn-body)
+        fn-stmt `(set! ~fn-name ~fn-signature)]
     (println "fn-body:" (first (third fn-def)) ":" (second (third fn-def)))
     (if local? (conj fn-stmt :local) fn-stmt)))
 
@@ -418,107 +420,54 @@
    })
 
 (comment
-  (clojure.core/fn
-    anonymous-chunk
-    []
-    (luaclj.util/process-return
-      (proteus/let-mutable
-        [a_fn
-         nil
-         b_fn
-         nil
-         _
-         (do
-           [clojure.core/fn
-            test1
-            []
-            (luaclj.util/process-return
-              (proteus/let-mutable [_ (return 5)]))]
-           [clojure.core/fn
-            test2
-            []
-            (luaclj.util/process-return
-              (proteus/let-mutable [_ (return 7)]))]
-           (do
-             (set!
-               a_fn
-               [clojure.core/fn
-                []
-                (luaclj.util/process-return
-                  (proteus/let-mutable [_ (return (+ (test1) (test2)))]))]))
-           (do
-             (set!
-               b_fn
-               [clojure.core/fn
-                [arg]
-                (luaclj.util/process-return
-                  (proteus/let-mutable
-                    [_ (return (+ arg (+ (test1) (test2))))]))]))
-           (print (+ (a_fn) (b_fn arg))))])))
-  
-  
-  (pprint (lua-parser (slurp "resources/test/function1.lua")))
-(luaclj.util/process-return 
+
+
+(luaclj.util/process-return
+  (proteus/let-mutable
+   [test1
+    nil
+    _
+    ^:stat (do
+     ^:stat (set! test1 ^:stat (clojure.core/fn test1 [] ^:stat (return 5)))
+     ^:stat (return (test1)))]))
+(proteus/let-mutable 
+  [G__63738 nil] 
   (proteus/let-mutable 
-    [g nil 
-     _ (do 
-         (cond true 
-               (proteus/let-mutable 
-                 [l "local_var" 
-                  _ (do (set! l "local_var_modified")) 
-                  _ (return l)])) 
-         (do (set! g "global_var")) (return g))]))
+    [test1 nil 
+     _ (clojure.core/when-not G__63738 
+         (do 
+           (clojure.core/when-not G__63738 
+             (set! test1 
+                   (clojure.core/when-not G__63738 
+                     (clojure.core/fn test1 [] 
+                       (clojure.core/when-not G__63738 
+                         (set! G__63738 [5])))))) 
+           (clojure.core/when-not G__63738 (set! G__63738 [(test1)]))))]) 
+  (if G__63738 (clojure.core/first G__63738) nil))
 
-(clojure.core/fn
-  anonymous-chunk
-  []
-  (luaclj.util/process-return
-    (proteus/let-mutable
-      [a_fn
-       nil
-       b_fn
-       nil
-       _
-       (do
-         (clojure.core/fn [] (return 5))
-         (clojure.core/fn [] (return 7))
-         (do (set! a_fn (clojure.core/fn [] (return (+ (test1) (test2))))))
-         (do
-           (set!
-             b_fn
-             (clojure.core/fn [arg] (return (+ arg (+ (test1) (test2)))))))
-         (print (+ (a_fn) (b_fn arg))))])))
-(transform [(codewalker #(and (sequential? %1) 
-                              (= (first %1) 'when))) 
-            LAST]
-           identity
-           '(do
-              (when true :a)
-              (when false :b)))
- (transform 
-            [(codewalker  #(= (safe-some-> %1 first) 'clojure.core/fn)) LAST]
-            identity #_(post-process-blocks %1)
-            '(do 
-  (clojure.core/fn test1 [] (return 5)) 
-  (clojure.core/fn test2 [] (return 7)) 
-  (do (set! a_fn (clojure.core/fn [] (return (+ (test1) (test2)))))) 
-  (do (set! b_fn (clojure.core/fn [arg] (return (+ arg (+ (test1) (test2))))))) 
-  (print (+ (a_fn) (b_fn arg)))))
-
+(try (anonymous-chunk)
+      (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+     
+  (pprint (lua-parser (slurp "resources/test/function1.lua")))
 
 (def test-fn (eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua")))))
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua"))))
+((eval (insta/transform transform-map (lua-parser (slurp "resources/test/function2.lua")))))
+(try 
+  ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua")))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
 (def fn1 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua")))))
 (fn1)
 ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua")))))
 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
   
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua"))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function2.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+ (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   

@@ -43,22 +43,97 @@
        (remove #((if (= odd-or-even-kw :odd) even? odd?) (first %1)) 
                (map #(vector %1 %2) (range) items))))
 
-(defn zipwalker [code pred-fn edit-fn]
+
+(defn end
+  "returns the location loc where (end? (next loc)) is true."
+  [loc]
+  (loop [loc loc]
+    (let [loc (zip/rightmost loc)]
+      (if (zip/branch? loc)
+        (recur (zip/down loc))
+        loc))))
+
+(defn skip
+  "returns the next location that is not a child of this one"
+  [start-loc]
+  (loop [loc start-loc]
+    (cond
+      ; can't skip, jump to end
+      (nil? loc) (zip/next (end start-loc))
+      ; at end
+      (zip/end? loc) loc
+      ; go to right/up
+      true (or (zip/right loc)
+               (recur (zip/up loc))))))
+
+
+(defn zipwalker [code pred-fn edit-fn & more]
   (zip/node 
-    (loop [c (zip/zipper sequential? seq (fn [_ c] c) code)]
+    (let [skip-fn (first more)
+          skip-fn (or skip-fn (constantly false))]
+      (loop [c (zip/zipper sequential? seq (fn [_ c] c) code)
+           cnt 0]
       (if (zip/end? c)
         c
         (let [curr-loc (if (pred-fn (zip/node c)) 
-                           (do (println "editing") (zip/edit c edit-fn))
-                           (do (println "keeping") c))
+                         (zip/edit c edit-fn)
+                         c)
               _ (println "curr-loc:" (zip/node curr-loc))
-              next-loc (zip/next curr-loc)]
-          (println "next-loc:" (zip/node next-loc))
-          (recur next-loc))))))
+              next-loc (if (skip-fn (zip/node curr-loc))
+                         (do (println "skipping!!!!!!!") (skip curr-loc))
+                         (zip/next curr-loc))]
+          ;(println "next-loc:" (zip/node next-loc))
+          (recur next-loc (inc cnt))))))))
 (defmacro process-return [code]
+  (println "processed code in:" code)
+  (let [r (if (and (sequential? code) 
+           (= (count code) 2)
+           (= (first code) 'return))
+    (second code)
+    (let [return-value (gensym)]
+      (letfn [(pred-fn [arg]
+                (and (sequential? arg) 
+                     (:stat (meta arg))))
+              (edit-fn [arg]
+                ;(println "edit-fn:" arg)
+                (if (= (first arg) 'return)
+                  `(when-not ~return-value (set! ~return-value [~(second arg)]))
+                  `(when-not ~return-value ~(vary-meta arg dissoc :stat)))
+                )
+              (skip-fn [arg]
+                (= (safe-some-> arg first) 'luaclj.util/process-return))]
+        `(let-mutable [~return-value nil]
+           ~(zipwalker code pred-fn edit-fn skip-fn)
+           (if ~return-value (first ~return-value) nil)))))]
+    (println "processed code:" r)
+    r
+    ))
+(comment
+  (:stat nil)
+  (process-return '(if (< 2 5)
+                     (do
+                       (println "<")
+                       (return "+"))
+                     (when true 
+                       (do
+                         (return "+++")
+                         (println "when true")))))
+)
+
+#_(defmacro process-return [code]
+  (transform 
+    (codewalker (fn [arg]
+                  (and (sequential? arg) (:stat (meta arg)))))
+    #(if (= (first %1) 'return) 
+       (second %1) %1)
+    code))
+#_(defmacro process-return [code]
+  (println "process-return IN")
   (let [return-value (gensym)]
     (letfn [(predicate-fn  [arg]
-              (and (sequential? arg) (:stat (meta arg))))
+              (and (sequential? arg) 
+                   (not= (first arg) 'clojure.core/fn)
+                   (:stat (meta arg))))
             (walk-fn [arg]
               (println "handler" arg ":" (meta arg))
               (if (= (first arg) 'return)
@@ -71,6 +146,7 @@
                                            walk-fn
                                            %1) 
                                arg))))]
+      (println "process-return OUT")
       `(let-mutable [~return-value nil
          ~'_ ~(transform (codewalker predicate-fn)
         walk-fn
@@ -110,8 +186,8 @@
        (process-return (do
                    (if (< 3 5) 
                      (if (< 4 5)
-                       (return "something")
-                       (return "nested"))
+                       return1 #_(return "something")
+                       return2 #_(return "nested"))
                      (println "not something")) 
                    [1 2 3])))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
