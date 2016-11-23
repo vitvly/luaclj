@@ -14,4 +14,4 @@ b_fn = function(arg)
   return arg + test1() + test2()
 end
 
-print(a_fn() + b_fn(2))
+return a_fn() + b_fn(2)
