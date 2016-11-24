@@ -192,21 +192,24 @@
   (println "while-args:" args)
   (let [while-args (leave :odd (first args))]
     (println "while-args1:" while-args)
-    `(while ~(first while-args)
-       ~(second while-args))
+    `(process-break
+       (while ~(first while-args)
+       ~(second while-args)))
     ))
 (defmacro repeat-until [test & body]
-  `(loop []
-     ~@body
-     (when (not ~test)
-       (recur))))
+  `(process-break
+     (loop []
+       ~@body
+       (when (not ~test)
+         (recur)))))
 
 (defn get-repeat-statement [& args]
   (println "while-args:" args)
   (let [repeat-args (leave :odd (first args))]
     (println "repeat-args1:" repeat-args)
-    `(repeat-until ~(second repeat-args)
-       ~(first repeat-args))
+    `(process-break
+       (repeat-until ~(second repeat-args)
+       ~(first repeat-args)))
     ))
 (defn get-for-statement [& args]
   (println "for-args:" args)
@@ -229,8 +232,9 @@
                           (unwrap (leave :even (next (second for-args))))
                           ]
                          )
-        doseq-stmt `(doseq ~for-condition
-                      ~for-body)
+        doseq-stmt `(process-break
+                      (doseq ~for-condition
+                      ~for-body))
         ]
     (println "for-condition:" for-condition)
     (println "for-args1:" for-args)
@@ -293,6 +297,8 @@
               (get-if-statement args)
               (= "do" (first args))
               (second args)
+              (= "break" (first args))
+              '(break)
               :else
               (first args))]
     (println "stat-fn return:" r)
@@ -508,7 +514,7 @@
 ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua")))))
-(eval (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
+((eval (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua")))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
@@ -516,6 +522,8 @@
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
  
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function2.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+ (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
  (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))

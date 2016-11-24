@@ -1,4 +1,5 @@
 (ns luaclj.util
+  (:import (luaclj.BreakException))
   (:require
     [riddley.walk :refer [walk-exprs]]
     [clojure.walk :as walk :refer [prewalk postwalk]]
@@ -78,14 +79,14 @@
         (let [curr-loc (if (pred-fn (zip/node c)) 
                          (zip/edit c edit-fn)
                          c)
-              _ (println "curr-loc:" (zip/node curr-loc))
+              ;_ (println "curr-loc:" (zip/node curr-loc))
               next-loc (if (skip-fn (zip/node curr-loc))
-                         (do (println "skipping!!!!!!!") (skip curr-loc))
+                         (skip curr-loc)
                          (zip/next curr-loc))]
           ;(println "next-loc:" (zip/node next-loc))
           (recur next-loc (inc cnt))))))))
 (defmacro process-return [code]
-  (println "processed code in:" code)
+  ;(println "processed code in:" code)
   (let [r (if (and (sequential? code) 
            (= (count code) 2)
            (= (first code) 'return))
@@ -105,9 +106,15 @@
         `(let-mutable [~return-value nil]
            ~(zipwalker code pred-fn edit-fn skip-fn)
            (if ~return-value (first ~return-value) nil)))))]
-    (println "processed code:" r)
+    ;(println "processed code:" r)
     r
     ))
+
+(defmacro process-break [code]
+  `(try ~(zipwalker code 
+                    #(= (safe-some-> %1 first) 'break) 
+                    (fn [_] `(throw (luaclj.BreakException.))))
+        (catch luaclj.BreakException ~'_ 1)))
 (comment
   (:stat nil)
   (process-return '(if (< 2 5)

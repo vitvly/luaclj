@@ -10,7 +10,10 @@
   (testing "Lua test scripts"
     (is (= ((create-lua-fn (slurp "resources/test/basic.lua"))) 11))
     (is (= ((create-lua-fn (slurp "resources/test/basic1.lua"))) "local_var_modified"))
+    (is (= ((create-lua-fn (slurp "resources/test/break.lua"))) 3))
     (is (= ((create-lua-fn (slurp "resources/test/for.lua"))) 5060))
     (is (= ((create-lua-fn (slurp "resources/test/function1.lua"))) 26))
+    (is (= ((create-lua-fn (slurp "resources/test/function2.lua"))) 5))
+    (is (= ((create-lua-fn (slurp "resources/test/function3.lua"))) 34))
     
     ))
