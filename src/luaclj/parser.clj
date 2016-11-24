@@ -165,7 +165,9 @@
     ))
 
 (defn prefixexp-fn [& args]
-  (first args))
+  (if (next args)
+    (second args)
+    (first args)))
 
 (defn varlist-fn [& args]
   (cons :varlist (leave :even args))
@@ -383,7 +385,7 @@
 (defn functiondef-fn [& args]
   (let [fn-args (vec (first (second args)))
         fn-body (second (second args))]
-  `(fn ~fn-args ~fn-body)))
+    `(fn ~fn-args ~fn-body)))
 
 (defn tableconstructor-fn [& args]
   (println "table:" args)
@@ -421,29 +423,74 @@
 
 (comment
 
+(proteus/let-mutable
+    (retval
+      nil
+      some_fn ^:local (clojure.core/fn
+                [arg1 arg2]
+                (set! retval 3 #_(+ retval 4))
+                retval)
+      _
+      (some_fn 3 5)))
 
-(luaclj.util/process-return
+
+
+  
+  (try (proteus/let-mutable
+    (retval
+      0
+      some_fn (clojure.core/fn
+                [arg1 arg2]
+                (let-mutable []
+                  (set! retval 3 #_(+ retval 4))
+                  retval))
+      _
+      (some_fn 3 5)))
+      (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+
+
+(let* 
+  [retval (new proteus.Containers$O nil) 
+   some_fn (new proteus.Containers$O nil) 
+   _ (new proteus.Containers$O 
+          (do 
+            (do 
+              (. retval set 0) nil)
+            (do (. some_fn set 
+                   (let* [retval (. retval x) some_fn (. some_fn x)] 
+                     (fn* ([arg1 arg2] 
+                           (let* [] 
+                             (set! retval (+ retval 4)) 
+                             retval))))) 
+                nil) 
+            ((. some_fn x) 3 5)))])
+(let* 
+  [retval (new proteus.Containers$O nil) 
+   some_fn (new proteus.Containers$O nil) 
+   _ (new proteus.Containers$O 
+          (do 
+            (do 
+              (. retval set 0) nil) 
+            (do (. some_fn set 
+                   (fn* ([arg1 arg2] 
+                         (let* [] 
+                           (do (. retval set (. clojure.lang.Numbers (add (. retval x) 4))) nil) (. retval x))))) nil) ((. some_fn x) 3 5)))])
   (proteus/let-mutable
-   [test1
-    nil
-    _
-    ^:stat (do
-     ^:stat (set! test1 ^:stat (clojure.core/fn test1 [] ^:stat (return 5)))
-     ^:stat (return (test1)))]))
-(proteus/let-mutable 
-  [G__63738 nil] 
-  (proteus/let-mutable 
-    [test1 nil 
-     _ (clojure.core/when-not G__63738 
-         (do 
-           (clojure.core/when-not G__63738 
-             (set! test1 
-                   (clojure.core/when-not G__63738 
-                     (clojure.core/fn test1 [] 
-                       (clojure.core/when-not G__63738 
-                         (set! G__63738 [5])))))) 
-           (clojure.core/when-not G__63738 (set! G__63738 [(test1)]))))]) 
-  (if G__63738 (clojure.core/first G__63738) nil))
+      (retval
+        nil
+        some_fn
+        nil
+        _
+        (do
+          (set! retval 0)
+          (set!
+              some_fn
+              ^:local (clojure.core/fn
+                [arg1 arg2]
+                (let-mutable []
+                  (set! retval (+ retval 4))
+                  retval)))
+          ^:stat (some_fn 3 5))))
 
 (try (anonymous-chunk)
       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
@@ -451,6 +498,7 @@
   (pprint (lua-parser (slurp "resources/test/function1.lua")))
 
 (def test-fn (eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp "resources/test/function3.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/function2.lua")))))
 (try 
   ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua")))))
@@ -464,7 +512,9 @@
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
-  
+  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function3.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+ 
   (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function2.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
  (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
