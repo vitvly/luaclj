@@ -15,5 +15,7 @@
     (is (= ((create-lua-fn (slurp "resources/test/function1.lua"))) 26))
     (is (= ((create-lua-fn (slurp "resources/test/function2.lua"))) 5))
     (is (= ((create-lua-fn (slurp "resources/test/function3.lua"))) 34))
+    (is (= ((create-lua-fn (slurp "resources/test/factorial.lua"))) 120))
+    (is (= ((create-lua-fn (slurp "resources/test/days_in_month.lua"))) 31))
     
     ))
