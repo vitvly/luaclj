@@ -21,7 +21,7 @@
                                      walker]]
             [clojure.walk :as walk :refer [prewalk postwalk]]))
 
-(def lua-parser (insta/parser (slurp "resources/lua53.ebnf") :auto-whitespace :standard))
+(def lua-parser (insta/parser (slurp-lua "resources/lua53.ebnf") :auto-whitespace :standard))
 
 (comment
 (let [s [[{:a 1} ['(set! a 3) :b #{'('(set! b 4))}]] ['(['(set! a 6)])]]
@@ -501,35 +501,44 @@
 (try (anonymous-chunk)
       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
      
-  (pprint (lua-parser (slurp "resources/test/function1.lua")))
+  (pprint (lua-parser (slurp-lua "resources/test/function1.lua")))
 
-(def test-fn (eval (insta/transform transform-map (lua-parser (slurp "resources/test/function.lua")))))
-((eval (insta/transform transform-map (lua-parser (slurp "resources/test/function3.lua")))))
-((eval (insta/transform transform-map (lua-parser (slurp "resources/test/function2.lua")))))
+(def test-fn (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function3.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function2.lua")))))
 (try 
-  ((eval (insta/transform transform-map (lua-parser (slurp "resources/test/function1.lua")))))
+  ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function1.lua")))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
-(def fn1 (eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua")))))
+(def fn1 (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua")))))
 (fn1)
-((eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua")))))
-((eval (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua")))))
-((eval (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua")))))
-((eval (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua")))))
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/days_in_month.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/factorial.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/for.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/break.lua")))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
-  
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function3.lua"))))
+
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/factorial.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
  
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/function2.lua"))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/days_in_month.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
- (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/break.lua"))))
+ 
+  
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function3.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
- (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic.lua"))))
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/basic1.lua"))))
+ 
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function2.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+ (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/break.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+ (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic.lua"))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   
-  (try (pprint (insta/transform transform-map (lua-parser (slurp "resources/test/for.lua"))))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/for.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   (pprint tree)
   (prewalk #(do (println %1) %1) tree)

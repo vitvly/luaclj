@@ -5,6 +5,7 @@
     [clojure.walk :as walk :refer [prewalk postwalk]]
     [proteus :refer [let-mutable]]
     [clojure.zip :as zip]
+    [clojure.string :as str]
     [com.rpl.specter :refer [select 
                              ALL
                              LAST
@@ -115,18 +116,6 @@
                     #(= (safe-some-> %1 first) 'break) 
                     (fn [_] `(throw (luaclj.BreakException.))))
         (catch luaclj.BreakException ~'_ 1)))
-(comment
-  (:stat nil)
-  (process-return '(if (< 2 5)
-                     (do
-                       (println "<")
-                       (return "+"))
-                     (when true 
-                       (do
-                         (return "+++")
-                         (println "when true")))))
-)
-
 #_(defmacro process-return [code]
   (transform 
     (codewalker (fn [arg]
@@ -184,102 +173,16 @@
         (println "process-return result:" r)
         r))))
 
+(defn slurp-lua [fname]
+     (let [line-sep (System/getProperty "line.separator")
+           file-contents (slurp fname)]
+       (-> file-contents 
+           (str/replace #"(?s)--\[\[.*\]\]" "")
+           (str/replace #"(?m)--.*$" "")
+           )))
 (comment
-(proteus/let-mutable [G__13041 nil _ (do (clojure.core/when-not G__13041 (if (clojure.core/when-not G__13041 (. clojure.lang.Numbers (clojure.core/when-not G__13041 (clojure.core/lt 3 5)))) (clojure.core/when-not G__13041 (if (clojure.core/when-not G__13041 (. clojure.lang.Numbers (clojure.core/when-not G__13041 (clojure.core/lt 4 5)))) (set! G__13041 [(clojure.core/second luaclj.util/arg)]) (set! G__13041 [(clojure.core/second luaclj.util/arg)]))) (clojure.core/when-not G__13041 (println "not something")))) (clojure.core/when-not G__13041 [1 2 3]))] (if luaclj.util/return-value (clojure.core/first luaclj.util/return-value) nil))
-(. clojure.lang.Numbers (clojure.core/lt 3 5))
-(seq? `(some identity [1 2]))
-(try (let [return1 (with-meta '(return "something") {:stat true})
-           return2 (with-meta '(return "nested") {:stat true})]
-       (process-return (do
-                   (if (< 3 5) 
-                     (if (< 4 5)
-                       return1 #_(return "something")
-                       return2 #_(return "nested"))
-                     (println "not something")) 
-                   [1 2 3])))
-       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
-  (def code '(do
-               (if (< 3 5) 
-                 (if (< 4 5)
-                   (return "something")
-                   (return "nested"))
-                 (println "not something")) 
-               [1 2 3]))
-  (process-return code)
-  (walk-exprs (constantly true) identity code)
-  (tree-seq code)
-  (let-mutable [return-value (gensym)]
-    (letfn [(predicate-fn [arg]
-              (or= (safe-some-> arg first) ['if 'cond]))
-            (handler-fn [arg]
-              (println "arg:" arg)
-              (if (= (first arg) 'return)
-                `(set! ~return-value [(second arg)])
-                `(when-not ~return-value 
-                   ~(transform 
-                      [ALL] 
-                      #(walk-exprs sequential? handler-fn %1) arg))))]
-      `(let-mutable [~return-value nil
-                     ~'_ ~(transform [ALL] 
-                                    #(walk-exprs sequential? handler-fn %1)
-                                    code)]
-         (if return-value (first return-value) nil))))
-  (postwalk
-    (fn [arg]
-
-      (println "arg:" arg)
-      (if (or= (safe-some-> arg first) ['if 'cond'])
-        (do
-          (println "if")
-          `(when (not returned?) ~arg))
-        arg))
-    code)
-  (try (letfn [(handler-fn  [arg]
-                 (println "Handler:" arg) 
-                 (cond (some #{'if 'cond} arg)
-                   `(when (not returned?) ~arg)
-                   (sequential? arg) 
-                   (map handler-fn arg)
-                   :else arg))]
-         (walk-exprs (constantly true)
-           handler-fn
-           '(do
-              (if (< 3 5) (return "something")) 
-              [1 2 3])))
-       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
-(transform (walker sequential?)
-           (fn  [arg]
-             (println "Handler:" arg) 
-             (if (or= (first arg) ['if 'cond])
-               `(when (not returned?) ~arg)
-               arg))
-           '(do
-                   (if (< 3 5) (return "something")) 
-                   [1 2 3]))
-(sequential? [1 2])
-(zipwalker 
-  `(clojure.core/fn
-     anonymous-chunk
-     []
-     (proteus/let-mutable
-       [(do
-          (set! test1 (clojure.core/fn test1 [] (return 5)))
-          (do (set! a_fn (clojure.core/fn [] (return (+ (test1) (test2)))))))]))
-  (fn [arg]
-    (println "arg:" arg)
-    (= (safe-some-> arg first) 'clojure.core/fn))
-  (fn [arg]
-    (let [fn-name (when (= (count arg) 4) (second arg))
-          fn-args (if (= (count arg) 4) (third arg)
-                    (second arg))
-          fn-body (if (= (count arg) 4) (fourth arg)
-                    (third arg)) 
-          fn-stmt (if fn-name
-                    `(fn ~fn-name ~fn-args (process-return ~fn-body))
-                    `(fn ~fn-args (process-return ~fn-body)))]
-      fn-stmt)))
-(zip/next (zip/seq-zip '(do
-                          (when true :a)
-                          (when false :b))))
-
-)
+  
+(str/replace (str/join "\n" ["--[[ first comment" "code" "another comment]]"]) 
+             #"(?sm)--\[\[.*\]\]"  "")
+  (slurp-lua "resources/test/days_in_month.lua")
+  )
