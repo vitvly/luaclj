@@ -181,10 +181,10 @@
   ;(println "var-fn args:" args)
   (cond (= (safe-some-> args second) "[")
     ; Table access
-    `(assoc ~(first args) ~(nth args 2))
+    `(get ~(first args) ~(nth args 2))
     (= (safe-some-> args second) ".")
     ; Table access through string keys
-    `(assoc ~(first args) ~(str (nth args 2)))
+    `(get ~(first args) ~(str (nth args 2)))
     :else
     (first args)))
 
@@ -265,9 +265,11 @@
 (defn stat-fn [& args]
   (println "stat-fn:" args)
   (let [var-set-fn (fn [local? name value]
-                     (let [set-stmt (if (= (safe-some-> name first) 'clojure.core/assoc)
+                     ;(println "var-set-fn:" name ":" value)
+                     (let [set-stmt (if (= (safe-some-> name first) 'clojure.core/get)
                                       `(set! ~(second name)
-                                             ~(apply list (conj (vec name) value)))
+                                             ~(apply list (conj (into ['assoc] (next name))
+                                                                      #_(vec name) value)))
                                       `(set! ~name ~value))
                            set-stmt (if local? 
                                       (conj set-stmt :local) 
@@ -428,7 +430,47 @@
    })
 
 (comment
-
+(luaclj.util/process-return
+  (proteus/let-mutable
+   (get_days_in_month
+    nil
+    _
+    (do
+     (set!
+      get_days_in_month
+      (clojure.core/fn
+       get_days_in_month
+       [month year]
+       (luaclj.util/process-return
+        (proteus/let-mutable
+         [days_in_month
+          {7 31,
+           1 31,
+           4 30,
+           6 30,
+           3 31,
+           12 31,
+           2 28,
+           11 30,
+           9 30,
+           5 31,
+           10 31,
+           8 31}
+          d
+          (clojure.core/assoc days_in_month month)
+          _
+          (cond
+           (== month 2)
+           (cond
+            (== (mod year 4) 0)
+            (cond
+             (== (mod year 100) 0)
+             (cond (== (mod year 400) 0) (do (set! d 29)))
+             :else
+             (do (set! d 29)))))
+          _
+          ^:stat (return d)]))))
+     ^:stat(return (get_days_in_month 7 2007))))))
 (proteus/let-mutable
     (retval
       nil
