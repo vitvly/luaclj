@@ -1,5 +1,5 @@
 sum = 0
-for j = 1, 100 do
+for j = 1, 99 do
   sum = sum + j
 end
 

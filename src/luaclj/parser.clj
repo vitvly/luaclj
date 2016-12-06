@@ -114,7 +114,7 @@
 (defn block-fn [& args]
   (println "block-fn args:" args)
   (let [local-var-init-statements (select 
-                                    [ALL #(= (safe-some-> %1 first) :local)]
+                                    [ALL #(= (safe-some-> %1 first first) :local)]
                                     args) 
         ;local-var-init-statements (get-var-init-statements :local args)
         wrap-with-return (fn [arg]
@@ -123,8 +123,8 @@
                            ;`(when (not :returned?) ~arg)
                            )
         transform-fn (fn [arg]
-                       (cond (= :local (safe-some-> arg first))
-                         `([:local ~(third arg)] ~(fourth arg))
+                       (cond (= :local (safe-some-> arg first first))
+                         (mapcat identity (map #(list [:local (third %1)] (fourth %1)) arg))
                          :else `(~'_  ~(wrap-with-return arg))))
         r (cond (seq local-var-init-statements)
             `(let-mutable ~(vec (mapcat identity 
@@ -222,19 +222,21 @@
                    (nth for-args 2))
         for-condition  (if numeric?
                          [(nth for-args 0) 
-                        (if (= (count for-args) 5)
-                           `(range ~(nth for-args 1) 
-                                   ~(nth for-args 2)
-                                   ~(nth for-args 3))
-                           `(range ~(nth for-args 1) 
-                                   ~(nth for-args 2)))]
-                         [(vec (leave :even (next (first for-args))))
-                          (unwrap (leave :even (next (second for-args))))
+                          (if (= (count for-args) 5)
+                            `(range ~(nth for-args 1) 
+                                    (inc ~(nth for-args 2)) ; ranges are inclusive
+                                    ~(nth for-args 3))
+                            `(range ~(nth for-args 1) 
+                                    (inc ~(nth for-args 2)))) ; ranges are inclusive
+                          ]
+                         [(vec (next (first for-args)))
+                          (unwrap  (next (second for-args))
+                                  #_(leave :even (next (second for-args))))
                           ]
                          )
         doseq-stmt `(process-break
                       (doseq ~for-condition
-                      ~for-body))
+                        ~for-body))
         ]
     (println "for-condition:" for-condition)
     (println "for-args1:" for-args)
@@ -277,9 +279,9 @@
                        set-stmt))
         r (cond (and (= (safe-some-> args first) "local")
                      (= (safe-some-> args second first) :namelist))
-              (apply concat (apply
-                (partial map (partial var-set-fn true))
-                (map next (leave :even (next args)))))
+                (apply
+                  (partial map (partial var-set-fn true))
+                  (map next (leave :even (next args))))
               (or= "function" 
                    [(safe-some-> args first) 
                     (safe-some-> args second)])
@@ -322,7 +324,7 @@
 
 (defn namelist-fn [& args]
   (println "namelist:" args)
-  (into [:namelist] args))
+  (into [:namelist] (leave :even args)))
 
 (defn field-fn [& args]
   (println "field-fn:" args)
@@ -387,7 +389,7 @@
 
 (defn parlist-fn [& args]
   (println "parlist-fn:" args)
-  (leave :even (next (first args))))
+  (next (first args)))
 
 
 (defn functiondef-fn [& args]
@@ -438,118 +440,98 @@
 	text = "more text" 
 	654
   return dict[2])
+
 (luaclj.util/process-return
   (proteus/let-mutable
-   (get_days_in_month
+   (convert_to
+    nil
+    intervals
+    nil
+    positions
     nil
     _
     (do
+     (do
+      (set!
+       intervals
+       {1 {1 "seconds", 2 1},
+        2 {1 "minutes", 2 60},
+        3 {1 "hours", 2 60},
+        4 {1 "days", 2 24}}))
+     (do (set! positions {}))
+     (luaclj.util/process-break
+      (clojure.core/doseq
+       [i (clojure.core/range 1 (clojure.core/inc 4))]
+       (do
+        (set!
+         positions
+         (assoc
+          positions
+          (clojure.core/get (clojure.core/get intervals i) 1)
+          i)))))
      (set!
-      get_days_in_month
+      convert_to
       (clojure.core/fn
-       get_days_in_month
-       [month year]
+       convert_to
+       [value sourceunits targetunits]
        (luaclj.util/process-return
         (proteus/let-mutable
-         [days_in_month
-          {7 31,
-           1 31,
-           4 30,
-           6 30,
-           3 31,
-           12 31,
-           2 28,
-           11 30,
-           9 30,
-           5 31,
-           10 31,
-           8 31}
-          d
-          (clojure.core/assoc days_in_month month)
+         [sourcei
+          (clojure.core/get positions sourceunits)
+          targeti
+          (clojure.core/get positions targetunits)
           _
           (cond
-           (== month 2)
-           (cond
-            (== (mod year 4) 0)
-            (cond
-             (== (mod year 100) 0)
-             (cond (== (mod year 400) 0) (do (set! d 29)))
-             :else
-             (do (set! d 29)))))
-          _
-          ^:stat (return d)]))))
-     ^:stat(return (get_days_in_month 7 2007))))))
-(proteus/let-mutable
-    (retval
-      nil
-      some_fn ^:local (clojure.core/fn
-                [arg1 arg2]
-                (set! retval 3 #_(+ retval 4))
-                retval)
-      _
-      (some_fn 3 5)))
+           (< sourcei targeti)
+           (proteus/let-mutable
+            [base
+             1
+             _
+             (luaclj.util/process-break
+              (clojure.core/doseq
+               [i
+                (clojure.core/range
+                 (+ sourcei 1)
+                 (clojure.core/inc targeti))]
+               (do
+                (set!
+                 base
+                 (*
+                  base
+                  (clojure.core/get
+                   (clojure.core/get intervals i)
+                   2))))))
+             _
+             ^:stat (return (/ value base))])
+           (> sourcei targeti)
+           (proteus/let-mutable
+            [base
+             1
+             _
+             (luaclj.util/process-break
+              (clojure.core/doseq
+               [i
+                (clojure.core/range
+                 (+ targeti 1)
+                 (clojure.core/inc sourcei))]
+               (do
+                (set!
+                 base
+                 (*
+                  base
+                  (clojure.core/get
+                   (clojure.core/get intervals i)
+                   2))))))
+             _
+             ^:stat (return (* value base))])
+           :else
+           ^:stat (return value))]))))
+     (print (convert_to 86400 "seconds" "days"))
+     (print (convert_to 1 "days" "seconds"))))))
 
 
-
-  
-  (try (proteus/let-mutable
-    (retval
-      0
-      some_fn (clojure.core/fn
-                [arg1 arg2]
-                (let-mutable []
-                  (set! retval 3 #_(+ retval 4))
-                  retval))
-      _
-      (some_fn 3 5)))
-      (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
-
-
-(let* 
-  [retval (new proteus.Containers$O nil) 
-   some_fn (new proteus.Containers$O nil) 
-   _ (new proteus.Containers$O 
-          (do 
-            (do 
-              (. retval set 0) nil)
-            (do (. some_fn set 
-                   (let* [retval (. retval x) some_fn (. some_fn x)] 
-                     (fn* ([arg1 arg2] 
-                           (let* [] 
-                             (set! retval (+ retval 4)) 
-                             retval))))) 
-                nil) 
-            ((. some_fn x) 3 5)))])
-(let* 
-  [retval (new proteus.Containers$O nil) 
-   some_fn (new proteus.Containers$O nil) 
-   _ (new proteus.Containers$O 
-          (do 
-            (do 
-              (. retval set 0) nil) 
-            (do (. some_fn set 
-                   (fn* ([arg1 arg2] 
-                         (let* [] 
-                           (do (. retval set (. clojure.lang.Numbers (add (. retval x) 4))) nil) (. retval x))))) nil) ((. some_fn x) 3 5)))])
-  (proteus/let-mutable
-      (retval
-        nil
-        some_fn
-        nil
-        _
-        (do
-          (set! retval 0)
-          (set!
-              some_fn
-              ^:local (clojure.core/fn
-                [arg1 arg2]
-                (let-mutable []
-                  (set! retval (+ retval 4))
-                  retval)))
-          ^:stat (some_fn 3 5))))
-
-(try (anonymous-chunk)
-      (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+     (try (anonymous-chunk)
+     (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
      
   (pprint (lua-parser (slurp-lua "resources/test/function1.lua")))
 
@@ -561,6 +543,7 @@
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
 (def fn1 (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua")))))
 (fn1)
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/convert_to.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/tables.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/days_in_month.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/factorial.lua")))))
@@ -568,6 +551,15 @@
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/for.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/break.lua")))))
+
+
+  (pprint (insta/transform transform-map
+                   (lua-parser "local sourcei, targeti = positions[sourceunits], positions[targetunits]")))
+
+
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/convert_to.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+
   (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
 
