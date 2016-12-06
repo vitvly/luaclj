@@ -429,7 +429,15 @@
    :varlist varlist-fn
    })
 
+
+
+
 (comment
+(lua if i < 2 then 3 else 4 end dict = {2,3}
+	"text"
+	text = "more text" 
+	654
+  return dict[2])
 (luaclj.util/process-return
   (proteus/let-mutable
    (get_days_in_month
@@ -553,6 +561,7 @@
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
 (def fn1 (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua")))))
 (fn1)
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/tables.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/days_in_month.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/factorial.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic.lua")))))
@@ -574,6 +583,9 @@
  
   (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function2.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/tables.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+ 
  (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/break.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
  (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic.lua"))))

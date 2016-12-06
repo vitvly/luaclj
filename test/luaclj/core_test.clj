@@ -18,5 +18,9 @@
     (is (= ((create-lua-fn (slurp-lua "resources/test/function3.lua"))) 34))
     (is (= ((create-lua-fn (slurp-lua "resources/test/factorial.lua"))) 120))
     (is (= ((create-lua-fn (slurp-lua "resources/test/days_in_month.lua"))) 31))
-    
+    (is (= ((create-lua-fn (slurp-lua "resources/test/tables.lua"))) 2645))
     ))
+
+(deftest macro-test
+  (testing "Lua macros"
+    (is (= ((lua if 3 < 5 then return "true" else return "false" end)) "true"))))
