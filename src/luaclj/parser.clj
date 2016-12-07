@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
             [clojure.set :as set]
+            [clojure.math.numeric-tower :as math]
             [luaclj.library :refer :all]
             [luaclj.util :refer :all]
             [com.rpl.specter :refer [select 
@@ -310,8 +311,27 @@
     ;`(when (not :returned?) ~r)
     r
     ))
-(defn binop-or-unop-fn [& args]
-  (symbol (first args)))
+(defn binop-fn [& args]
+  (case (first args)
+    "//" (comp double math/floor /)
+    "^" math/expt
+    "%" mod
+    "&" bit-and
+    "~" bit-xor
+    "|" bit-or
+    ">>" bit-shift-right
+    "<<" bit-shift-left
+    "==" '=
+    "~=" 'not=
+    ".." 'str
+    (symbol (first args))))
+
+(defn unop-fn [& args]
+  (case (first args)
+    "~" 'not
+    "#" 'count
+    (symbol (first args))))
+
 (defn retstat-fn [& args]
   (println "retstat args:" args)
   ;`(_ ~args)
@@ -410,8 +430,8 @@
    :stat stat-fn
    :retstat retstat-fn
    :Numeral numeral-fn
-   :binop binop-or-unop-fn
-   :unop binop-or-unop-fn
+   :binop binop-fn
+   :unop unop-fn
    :LiteralString string-fn
    :Name symbol-fn
    :namelist namelist-fn
@@ -551,8 +571,28 @@
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/for.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/break.lua")))))
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/precedence.lua")))))
 
+ (pprint (lua-parser (slurp-lua "resources/test/precedence.lua")))
+[:chunk
+ [:block
+  [:stat
+   "local"
+   [:namelist [:Name "v"]]
+   "="
+   [:explist
+    [:exp
+     [:exp [:Numeral "3"]]
+     [:binop "*"]
+     [:exp [:exp [:Numeral "5"]] [:binop "+"] [:exp [:Numeral "3"]]]]]]
+  [:retstat
+   "return"
+   [:explist [:exp [:prefixexp [:var [:Name "v"]]]]]]]]
 
+(try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/precedence.lua"))))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+
+  
   (pprint (insta/transform transform-map
                    (lua-parser "local sourcei, targeti = positions[sourceunits], positions[targetunits]")))
 
