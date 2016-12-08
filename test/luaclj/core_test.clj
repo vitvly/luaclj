@@ -20,6 +20,7 @@
     (is (= ((create-lua-fn (slurp-lua "resources/test/days_in_month.lua"))) 31))
     (is (= ((create-lua-fn (slurp-lua "resources/test/tables.lua"))) 2645))
     (is (= ((create-lua-fn (slurp-lua "resources/test/convert_to.lua"))) 86400))
+    (is (= ((create-lua-fn (slurp-lua "resources/test/precedence.lua"))) -79))
     ))
 
 (deftest macro-test

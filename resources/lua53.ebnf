@@ -32,10 +32,58 @@ namelist ::= Name {',' Name}
 
 explist ::= exp {',' exp}
 
-exp ::=  'nil' | 'false' | 'true' | Numeral | LiteralString | '...' | functiondef | 
-   prefixexp | tableconstructor | exp binop exp | unop exp 
+<exp0> ::=  'nil' | 'false' | 'true' | Numeral | LiteralString | '...' | functiondef | 
+   prefixexp | tableconstructor
+exp ::= exp0 | expop
 
 prefixexp ::= var | functioncall | '(' exp ')'
+
+(* BEGIN PRECEDENCE SECTION *)
+<prec1op> ::= 'or'
+<prec2op> ::= 'and'
+<prec3op> ::= '<' | '<=' | '>' | '>=' | '==' | '~='
+<prec4op> ::= '|'
+<prec5op> ::= '~'
+<prec6op> ::= '&'
+<prec7op> ::= '<<' | '>>'
+<prec8op> ::= '..'
+<prec9op> ::= '+' | '-'
+<prec10op> ::= '*' | '/' | '//' | '%'
+<prec11op> ::= 'not' | '#' | '-' | '~'
+<prec12op> ::= '^'
+
+<expop> ::=  exp1  | exp2  | exp3  | exp4  | exp5  | exp6  
+          | exp7  | exp8  | exp9 | exp10 | exp11 | exp12 
+
+exp1 ::= (exp0 | exp1 | exp2 | exp3 | exp4 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12) 
+         prec1op 
+         (exp0 | exp1 | exp2 | exp3 | exp4 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12)
+exp2 ::= (exp0 | exp2 | exp3 | exp4 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12) 
+         prec2op 
+         (exp0 | exp2 | exp3 | exp4 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12)
+exp3 ::= (exp0 | exp3 | exp4 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12) 
+         prec3op 
+         (exp0 | exp3 | exp4 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12)
+exp4 ::= (exp0 | exp4 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12) 
+         prec4op 
+         (exp0 | exp4 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12)
+exp5 ::= (exp0 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12) 
+         prec5op 
+         (exp0 | exp5 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12)
+exp6 ::= (exp0 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12) 
+         prec6op 
+         (exp0 | exp6 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12)
+exp7 ::= (exp0 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12) 
+         prec7op 
+         (exp0 | exp7 | exp8 | exp9 | exp10 | exp11 | exp12)
+exp8 ::= (exp0 | exp8 | exp9 | exp10 | exp11 | exp12) 
+         prec8op 
+         (exp0 | exp8 | exp9 | exp10 | exp11 | exp12)
+exp9 ::= (exp0 | exp9 | exp10 | exp11 | exp12) prec9op (exp0 | exp9 | exp10 | exp11 | exp12)
+exp10 ::= (exp0 | exp10 | exp11 | exp12) prec10op (exp0 | exp10 | exp11 | exp12)
+exp11 ::= prec11op (exp0 | exp12)
+exp12 ::= (exp12 | exp0) prec12op (exp12 | exp0)
+(* END PRECEDENCE SECTION *)
 
 functioncall ::=  prefixexp args | prefixexp ':' Name args 
 

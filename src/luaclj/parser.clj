@@ -311,26 +311,30 @@
     ;`(when (not :returned?) ~r)
     r
     ))
-(defn binop-fn [& args]
-  (case (first args)
-    "//" (comp double math/floor /)
-    "^" math/expt
-    "%" mod
-    "&" bit-and
-    "~" bit-xor
-    "|" bit-or
-    ">>" bit-shift-right
-    "<<" bit-shift-left
-    "==" '=
-    "~=" 'not=
-    ".." 'str
-    (symbol (first args))))
 
-(defn unop-fn [& args]
-  (case (first args)
-    "~" 'not
-    "#" 'count
-    (symbol (first args))))
+(math/expt 3 2)
+(defn binop-fn [arg1 op-str arg2]
+  (let [op (case op-str
+             "//" '(comp double math/floor /)
+             "^" 'math/expt
+             "%" 'mod
+             "&" 'bit-and
+             "~" 'bit-xor
+             "|" 'bit-or
+             ">>" 'bit-shift-right
+             "<<" 'bit-shift-left
+             "==" '=
+             "~=" 'not=
+             ".." 'str
+             (symbol op-str))]
+    (list op arg1 arg2)))
+
+(defn unop-fn [op-str arg1]
+  (let [op (case op-str
+             "~" 'not
+             "#" 'count
+             (symbol op-str))]
+    (list op arg1)))
 
 (defn retstat-fn [& args]
   (println "retstat args:" args)
@@ -425,31 +429,33 @@
 
 
 (def transform-map
-  {:chunk chunk-fn
-   :block block-fn
-   :stat stat-fn
-   :retstat retstat-fn
-   :Numeral numeral-fn
-   :binop binop-fn
-   :unop unop-fn
-   :LiteralString string-fn
-   :Name symbol-fn
-   :namelist namelist-fn
-   :exp exp-fn
-   :prefixexp prefixexp-fn
-   :var var-fn
-   :field field-fn
-   :fieldlist fieldlist-fn
-   :tableconstructor tableconstructor-fn
-   :args args-fn
-   :functioncall functioncall-fn
-   :funcname funcname-fn
-   :funcbody funcbody-fn
-   :functiondef functiondef-fn
-   :parlist parlist-fn
-   :explist explist-fn
-   :varlist varlist-fn
-   })
+  (into
+    {:chunk chunk-fn
+     :block block-fn
+     :stat stat-fn
+     :retstat retstat-fn
+     :Numeral numeral-fn
+     :LiteralString string-fn
+     :Name symbol-fn
+     :namelist namelist-fn
+     :exp exp-fn
+     :exp11 unop-fn
+     :prefixexp prefixexp-fn
+     :var var-fn
+     :field field-fn
+     :fieldlist fieldlist-fn
+     :tableconstructor tableconstructor-fn
+     :args args-fn
+     :functioncall functioncall-fn
+     :funcname funcname-fn
+     :funcbody funcbody-fn
+     :functiondef functiondef-fn
+     :parlist parlist-fn
+     :explist explist-fn
+     :varlist varlist-fn }
+    (map #(vector %1 binop-fn)
+         [:exp1 :exp2 :exp3 :exp4 :exp5 :exp6
+          :exp7 :exp8 :exp9 :exp10 :exp12])))
 
 
 
@@ -572,7 +578,8 @@
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/for.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/break.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/precedence.lua")))))
-
+((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/precedence.lua")))))
+(expt 3 2)
  (pprint (lua-parser (slurp-lua "resources/test/precedence.lua")))
 [:chunk
  [:block
