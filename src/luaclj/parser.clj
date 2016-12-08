@@ -24,6 +24,7 @@
 
 (def lua-parser (insta/parser (slurp-lua "resources/lua53.ebnf") :auto-whitespace :standard))
 
+
 (comment
 (let [s [[{:a 1} ['(set! a 3) :b #{'('(set! b 4))}]] ['(['(set! a 6)])]]
         walker-fn #(safe-some->> %1 (some (fn [arg] (= arg 'set!))))
@@ -314,8 +315,8 @@
 
 (defn binop-fn [arg1 op-str arg2]
   (let [op (case op-str
-             "//" '(comp double math/floor /)
-             "^" 'math/expt
+             "//" '(comp double floor /)
+             "^" 'expt
              "%" 'mod
              "&" 'bit-and
              "~" 'bit-xor

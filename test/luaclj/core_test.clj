@@ -1,7 +1,6 @@
 (ns luaclj.core-test
   (:require [clojure.test :refer :all]
-            [clojure.math.numeric-tower :as math]
-                       [luaclj.util :refer [slurp-lua]]
+            [luaclj.util :refer [slurp-lua]]
             [luaclj.library :refer :all]
             [luaclj.core :refer :all]))
 (comment
