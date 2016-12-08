@@ -1,6 +1,6 @@
 # luaclj
 
-This is a Lua-to-Clojure code translator. It takes Lua source code string as an input and produces eval'able Clojure code.
+This is a Lua-to-Clojure parser. It takes Lua source code string as an input and produces eval'able Clojure code.
 
 # Usage
 In project.clj:
@@ -26,13 +26,19 @@ Result:
 ```
 Result:
 
+# Supported language features
+  - Local and global variable declarations
+  - if, while, repeat, for (with break statements)
+  - function calls/definitions, both local and global
+  - tables
+  - correct operator precedence
+
+# Not supported yet
+  - metatables
 
 # Acknowledgments
 Special thanks goes to Mark Engelberg ([Instaparse](https://github.com/Engelberg/instaparse)), Zach Tellman ([Proteus](https://github.com/ztellman/proteus)), and Nathan Marz ([Specter](https://github.com/nathanmarz/specter/)).
 
 # License
 
-Copyright © 2016
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the MIT License.
