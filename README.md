@@ -35,6 +35,7 @@ Result:
 
 # Not supported yet
   - metatables
+  - standard library functions, except for `pairs` and `ipairs`
 
 # Acknowledgments
 Special thanks goes to Mark Engelberg ([Instaparse](https://github.com/Engelberg/instaparse)), Zach Tellman ([Proteus](https://github.com/ztellman/proteus)), and Nathan Marz ([Specter](https://github.com/nathanmarz/specter/)).
