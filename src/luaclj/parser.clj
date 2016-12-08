@@ -1,6 +1,6 @@
 (ns luaclj.parser
   (:require [instaparse.core :as insta]
-            [proteus :refer [let-mutable]]
+            [luaclj.proteus :refer [let-mutable]]
             [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
             [clojure.set :as set]
@@ -312,7 +312,6 @@
     r
     ))
 
-(math/expt 3 2)
 (defn binop-fn [arg1 op-str arg2]
   (let [op (case op-str
              "//" '(comp double math/floor /)
@@ -467,93 +466,7 @@
 	654
   return dict[2])
 
-(luaclj.util/process-return
-  (proteus/let-mutable
-   (convert_to
-    nil
-    intervals
-    nil
-    positions
-    nil
-    _
-    (do
-     (do
-      (set!
-       intervals
-       {1 {1 "seconds", 2 1},
-        2 {1 "minutes", 2 60},
-        3 {1 "hours", 2 60},
-        4 {1 "days", 2 24}}))
-     (do (set! positions {}))
-     (luaclj.util/process-break
-      (clojure.core/doseq
-       [i (clojure.core/range 1 (clojure.core/inc 4))]
-       (do
-        (set!
-         positions
-         (assoc
-          positions
-          (clojure.core/get (clojure.core/get intervals i) 1)
-          i)))))
-     (set!
-      convert_to
-      (clojure.core/fn
-       convert_to
-       [value sourceunits targetunits]
-       (luaclj.util/process-return
-        (proteus/let-mutable
-         [sourcei
-          (clojure.core/get positions sourceunits)
-          targeti
-          (clojure.core/get positions targetunits)
-          _
-          (cond
-           (< sourcei targeti)
-           (proteus/let-mutable
-            [base
-             1
-             _
-             (luaclj.util/process-break
-              (clojure.core/doseq
-               [i
-                (clojure.core/range
-                 (+ sourcei 1)
-                 (clojure.core/inc targeti))]
-               (do
-                (set!
-                 base
-                 (*
-                  base
-                  (clojure.core/get
-                   (clojure.core/get intervals i)
-                   2))))))
-             _
-             ^:stat (return (/ value base))])
-           (> sourcei targeti)
-           (proteus/let-mutable
-            [base
-             1
-             _
-             (luaclj.util/process-break
-              (clojure.core/doseq
-               [i
-                (clojure.core/range
-                 (+ targeti 1)
-                 (clojure.core/inc sourcei))]
-               (do
-                (set!
-                 base
-                 (*
-                  base
-                  (clojure.core/get
-                   (clojure.core/get intervals i)
-                   2))))))
-             _
-             ^:stat (return (* value base))])
-           :else
-           ^:stat (return value))]))))
-     (print (convert_to 86400 "seconds" "days"))
-     (print (convert_to 1 "days" "seconds"))))))
+
 
 
      (try (anonymous-chunk)

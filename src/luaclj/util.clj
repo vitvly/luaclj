@@ -3,7 +3,7 @@
   (:require
     [riddley.walk :refer [walk-exprs]]
     [clojure.walk :as walk :refer [prewalk postwalk]]
-    [proteus :refer [let-mutable]]
+    [luaclj.proteus :refer [let-mutable]]
     [clojure.zip :as zip]
     [clojure.string :as str]
     [com.rpl.specter :refer [select 
