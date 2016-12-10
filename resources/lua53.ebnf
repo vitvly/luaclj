@@ -112,6 +112,6 @@ unop ::= '-' | 'not' | '#' | '~'
 
 Numeral ::= ['-'] #'[0-9]+' ['.' #'[0-9]+']
 
-LiteralString ::= #"'.*?'"
+LiteralString ::= #"['\"].*?['\"]"
 
 Name ::= #'[a-zA-Z_]\w*'
