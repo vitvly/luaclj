@@ -5,6 +5,10 @@
             [clojure.string :as str]
             [clojure.set :as set]
             [clojure.math.numeric-tower :as math]
+            [taoensso.timbre :as timbre
+             :refer [log  trace  debug  info  warn  error  fatal  report
+                     logf tracef debugf infof warnf errorf fatalf reportf
+                     spy get-env]]
             [luaclj.library :refer :all]
             [luaclj.util :refer :all]
             [com.rpl.specter :refer [select 
@@ -28,7 +32,7 @@
 (comment
 (let [s [[{:a 1} ['(set! a 3) :b #{'('(set! b 4))}]] ['(['(set! a 6)])]]
         walker-fn #(safe-some->> %1 (some (fn [arg] (= arg 'set!))))
-        t-fn (fn [arg] (println "t-fn:" arg))]
+        t-fn (fn [arg] (debug "t-fn:" arg))]
     #_(select (walker walker-fn) s)
     (transform
       (subselect (walker walker-fn))
@@ -48,11 +52,11 @@
                              (select (codewalker local-pred) 
                                      args)))
         global-vars (set/difference all-vars local-vars)]
-    (println "global-vars:" all-vars ":" local-vars ":" global-vars)
+    (debug "global-vars:" all-vars ":" local-vars ":" global-vars)
     global-vars))
 
 (defn chunk-fn [& args]
-  (println "chunk-fn:" args)
+  (debug "chunk-fn:" args)
   (let [global-vars (find-global-vars args)
         global-var-init-statements (mapcat identity (map #(vector %1 nil) global-vars))
         args (transform 
@@ -60,10 +64,12 @@
                ; Remove occurrences of :local 
                second
                args)
-        nested-block `(~'_ ~@args)
-        let-statements (into (vec global-var-init-statements) nested-block)
+        fn-body (if (seq global-var-init-statements)
+                  `(let-mutable ~(into (vec global-var-init-statements) 
+                                      `(~'_ ~@args)))
+                  (first args))
         expr `(fn ~'anonymous-chunk []
-                (let-mutable ~let-statements))
+                ~fn-body)
         pred-fn #(= (safe-some-> %1 first) 'clojure.core/fn)
         edit-fn (fn [arg]
                   (let [fn-name (when (= (count arg) 4) (second arg))
@@ -76,67 +82,33 @@
                                   `(fn ~fn-args (process-return ~fn-body)))]
                     fn-stmt))
         expr (zipwalker expr pred-fn edit-fn)]
-    (println "final chunk:" (macroexpand expr))
-    expr))
-
-  ;`(fn ~'anonymous-chunk [] ~(post-process-blocks (first args)))
-  #_(let [fn-pred #(= (safe-some-> %1 first) 'clojure.core/fn)
-          ;r (zipwalker args fn-pred #(post-process-blocks %1)) 
-          #_(transform 
-              [(codewalker fn-pred) LAST]
-              #_[ALL 
-                 (if-path (pred fn-pred)
-                          LAST
-                          STAY) ]
-              #(post-process-blocks %1)
-              args)
-          r (do
-              (println "chunk-fn1:" r)
-              (if (not (some fn-pred r)) 
-                `(fn ~'anonymous-chunk [] ~(post-process-blocks (first r)))
-                (transform [ALL] #(apply list %1) r)))]
-      (println "chunk-fn result:" r)
-      r)
-
-(comment
-
-  (select
-    [ALL
-     (if-path (pred #(= (safe-some-> %1 first) 'clojure.core/fn))
-             LAST
-             STAY)]
-              
-    `((clojure.core/fn :a :b)
-      (let-mutable [:a :b])))
-  (select (multi-path STAY (walker #(= (safe-some-> %1 first) 'clojure.core/fn)))
-          `((clojure.core/fn :a :b)
-            (let-mutable [:a :b])))
-  )
+  (debug "final chunk:" (macroexpand expr))
+  expr))
 
 (defn block-fn [& args]
-  (println "block-fn args:" args)
+  (debug "block-fn args:" args)
   (let [local-var-init-statements (select 
                                     [ALL #(= (safe-some-> %1 first first) :local)]
                                     args) 
         ;local-var-init-statements (get-var-init-statements :local args)
         wrap-with-return (fn [arg]
-                           (println "wrapping:" arg)
+                           (debug "wrapping:" arg)
                            (with-meta arg {:stat true})
                            ;`(when (not :returned?) ~arg)
                            )
         transform-fn (fn [arg]
                        (cond (= :local (safe-some-> arg first first))
-                         (mapcat identity (map #(list [:local (third %1)] (fourth %1)) arg))
-                         :else `(~'_  ~(wrap-with-return arg))))
+                             (mapcat identity (map #(list [:local (third %1)] (fourth %1)) arg))
+                             :else `(~'_  ~(wrap-with-return arg))))
         r (cond (seq local-var-init-statements)
-            `(let-mutable ~(vec (mapcat identity 
-                                        (transform ALL transform-fn args))))
-            (next args)
-            `(do ~@(map wrap-with-return args))
-            ;(= (safe-some-> args first first) 'clojure.core/fn)
-            ;(first args)
-            :else (wrap-with-return (first args)))]
-    (println "block-fn return:" r)
+                `(let-mutable ~(vec (mapcat identity 
+                                            (transform ALL transform-fn args))))
+                (next args)
+                `(do ~@(map wrap-with-return args))
+                ;(= (safe-some-> args first first) 'clojure.core/fn)
+                ;(first args)
+                :else (wrap-with-return (first args)))]
+    (debug "block-fn return:" r)
     ;`(when (not :returned?) ~r)
     r
     ))
@@ -151,18 +123,18 @@
       (Integer/parseInt numeral))))
 
 (defn string-fn [& args]
-  (println "string:" args)
+  (debug "string:" args)
   (.substring (first args) 1 (dec (count (first args)))))
 
 (defn exp-fn [& args]
-  (println "exp-fn args:" args)
+  (debug "exp-fn args:" args)
   (let [ r (cond (= 3 (count args))
     (list (nth args 1) (nth args 0) (nth args 2))
     (= 2 (count args))
     (list (nth args 1) (nth args 0))
     :else
     (first args))]
-    (println "exp-fn result:" r)
+    (debug "exp-fn result:" r)
     r
     ))
 
@@ -180,7 +152,7 @@
   )
 
 (defn var-fn [& args]
-  ;(println "var-fn args:" args)
+  ;(debug "var-fn args:" args)
   (cond (= (safe-some-> args second) "[")
     ; Table access
     `(get ~(first args) ~(nth args 2))
@@ -191,9 +163,9 @@
     (first args)))
 
 (defn get-while-statement [& args]
-  (println "while-args:" args)
+  (debug "while-args:" args)
   (let [while-args (leave :odd (first args))]
-    (println "while-args1:" while-args)
+    (debug "while-args1:" while-args)
     `(process-break
        (while ~(first while-args)
        ~(second while-args)))
@@ -206,15 +178,15 @@
          (recur)))))
 
 (defn get-repeat-statement [& args]
-  (println "while-args:" args)
+  (debug "while-args:" args)
   (let [repeat-args (leave :odd (first args))]
-    (println "repeat-args1:" repeat-args)
+    (debug "repeat-args1:" repeat-args)
     `(process-break
        (repeat-until ~(second repeat-args)
        ~(first repeat-args)))
     ))
 (defn get-for-statement [& args]
-  (println "for-args:" args)
+  (debug "for-args:" args)
   (let [for-args (leave :odd (first args))
         numeric? (not= (safe-some-> for-args first first) :namelist)
         for-body (if numeric?
@@ -240,8 +212,8 @@
                       (doseq ~for-condition
                         ~for-body))
         ]
-    (println "for-condition:" for-condition)
-    (println "for-args1:" for-args)
+    (debug "for-condition:" for-condition)
+    (debug "for-args1:" for-args)
     doseq-stmt
     ))
 
@@ -254,7 +226,7 @@
     ))
 
 (defn get-fn-statement [& args]
-  (println "get-fn-statement" args)
+  (debug "get-fn-statement" args)
   (let [local? (= (first (first args)) "local")
         fn-def (if local? (next (first args))
                  (first args))
@@ -263,13 +235,13 @@
         fn-body (second (third fn-def))
         fn-signature `(fn ~fn-name ~fn-args ~fn-body)
         fn-stmt `(set! ~fn-name ~fn-signature)]
-    (println "fn-body:" (first (third fn-def)) ":" (second (third fn-def)))
+    (debug "fn-body:" (first (third fn-def)) ":" (second (third fn-def)))
     (if local? (conj fn-stmt :local) fn-stmt)))
 
 (defn stat-fn [& args]
-  (println "stat-fn:" args)
+  (debug "stat-fn:" args)
   (let [var-set-fn (fn [local? name value]
-                     ;(println "var-set-fn:" name ":" value)
+                     ;(debug "var-set-fn:" name ":" value)
                      (let [set-stmt (if (= (safe-some-> name first) 'clojure.core/get)
                                       `(set! ~(second name)
                                              ~(apply list (conj (into ['assoc] (next name))
@@ -307,7 +279,7 @@
               '(break)
               :else
               (first args))]
-    (println "stat-fn return:" r)
+    (debug "stat-fn return:" r)
     ;`(:stat ~r)
     ;`(when (not :returned?) ~r)
     r
@@ -337,27 +309,27 @@
     (list op arg1)))
 
 (defn retstat-fn [& args]
-  (println "retstat args:" args)
+  (debug "retstat args:" args)
   ;`(_ ~args)
   (let [ret-val (next (first (next args)))
         ret-val (do
-                  (println "ret-val:" ret-val)
+                  (debug "ret-val:" ret-val)
                   (if (next ret-val) (vec ret-val)
                   (first ret-val)))]
         `(~'return ~ret-val)))
 
 (defn namelist-fn [& args]
-  (println "namelist:" args)
+  (debug "namelist:" args)
   (into [:namelist] (leave :even args)))
 
 (defn field-fn [& args]
-  (println "field-fn:" args)
+  (debug "field-fn:" args)
   (let [r (cond (= (safe-some-> args first) "[")
                 [(nth args 1) (nth args 4)]
                 (= (count args) 3)
                 [(str (first args)) (third args)]
                 :else (first args))]
-    (println "field-fn r:" r)
+    (debug "field-fn r:" r)
     r))
 
 (defn fieldsep-fn [& args]
@@ -374,7 +346,7 @@
                 [index (conj fields value)]))
             [0 []]
             (leave :even args))]
-    (println "fieldlist:" r)
+    (debug "fieldlist:" r)
     (second r)))
 
 (defn args-fn [& args]
@@ -389,7 +361,7 @@
     ))
 
 (defn functioncall-fn [& args]
-  (println "functioncall:" args)
+  (debug "functioncall:" args)
   (let [fn-args (if (or
                       (= (safe-some-> args second) [])
                       (= (safe-some-> args second first) :explist))
@@ -401,18 +373,18 @@
   (first args))
 
 (defn funcbody-fn [& args]
-  (println "funcbody-fn in:" args)
+  (debug "funcbody-fn in:" args)
   (let [r (remove #(or= %1 
                 ["(" ")" "end"]) args)
         r (do
-            (println "funcbody:" r)
+            (debug "funcbody:" r)
             (if (next r) r (conj r [])))]
-    (println "funcbody-fn result:" r)
+    (debug "funcbody-fn result:" r)
     r
     ))
 
 (defn parlist-fn [& args]
-  (println "parlist-fn:" args)
+  (debug "parlist-fn:" args)
   (next (first args)))
 
 
@@ -422,7 +394,7 @@
     `(fn ~fn-args ~fn-body)))
 
 (defn tableconstructor-fn [& args]
-  (println "table:" args)
+  (debug "table:" args)
   (if (= 3 (count args))
     (into (hash-map) (second args))
     {}))
@@ -548,5 +520,5 @@
   (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/for.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   (pprint tree)
-  (prewalk #(do (println %1) %1) tree)
+  (prewalk #(do (debug %1) %1) tree)
          )
