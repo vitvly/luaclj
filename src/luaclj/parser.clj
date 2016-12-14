@@ -29,20 +29,6 @@
 (def lua-parser (insta/parser (slurp-lua "resources/lua53.ebnf") :auto-whitespace :standard))
 
 
-(comment
-(let [s [[{:a 1} ['(set! a 3) :b #{'('(set! b 4))}]] ['(['(set! a 6)])]]
-        walker-fn #(safe-some->> %1 (some (fn [arg] (= arg 'set!))))
-        t-fn (fn [arg] (debug "t-fn:" arg))]
-    #_(select (walker walker-fn) s)
-    (transform
-      (subselect (walker walker-fn))
-      t-fn
-      s)
-    )
-
-  )
-
-
 (defn find-global-vars [& args]
   (let [var-pred #(= (safe-some-> %1 first) 'set!)
         all-vars (set (map second
@@ -70,8 +56,7 @@
                   (first args))
         expr (if (or (:fns opts) (:nowrap opts))
                fn-body
-               `(fn ~'anonymous-chunk []
-                ~fn-body))
+               `(fn ~'anonymous-chunk [] ~fn-body))
         pred-fn #(= (safe-some-> %1 first) 'clojure.core/fn)
         edit-fn (fn [arg]
                   (let [fn-name (when (= (count arg) 4) (second arg))
@@ -470,7 +455,7 @@
          ^:stat (return (+ (a_fn) (b_fn 2))))]))
 
 (def test-fn (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function.lua")))))
-((eval (parse-lua (slurp-lua "resources/test/function1.lua") {:nowrap true})))
+((eval (parse-lua (slurp-lua "resources/test/function1.lua") {})))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function2.lua")))))
 (try 
   ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function1.lua")))))

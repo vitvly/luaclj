@@ -37,4 +37,4 @@
 
 (deftest macro-test
   (testing "Lua macros"
-    (is (= ((lua if 3 < 5 then return "true" else return "false" end)) "true"))))
+    (is (= (lua if 3 < 5 then return "true" else return "false" end) "true"))))
