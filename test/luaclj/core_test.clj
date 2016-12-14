@@ -22,12 +22,19 @@
     (is (= ((eval-lua (slurp-lua "resources/test/convert_to.lua"))) 86400))
     (is (= ((eval-lua (slurp-lua "resources/test/precedence.lua"))) -79))
     ))
+
 (deftest fns-test
   (testing "fns option"
     (is (= (count (lua->clj (slurp-lua "resources/test/function1.lua") :fns)) 2))
     (is (= ((eval (first (lua->clj (slurp-lua "resources/test/function1.lua") :fns)))) 5))
     (is (= ((eval (second (lua->clj (slurp-lua "resources/test/function1.lua") :fns)))) 7))
     ))
+
+(deftest nowrap-test
+  (testing "nowrap option"
+    (is (= (eval-lua (slurp-lua "resources/test/function1.lua") :nowrap) 26))
+    ))
+
 (deftest macro-test
   (testing "Lua macros"
     (is (= ((lua if 3 < 5 then return "true" else return "false" end)) "true"))))

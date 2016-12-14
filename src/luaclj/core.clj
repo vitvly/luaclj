@@ -9,7 +9,7 @@
                                      pred
                                      if-path
                                      cond-path
-                                     multi-path
+                                     multi-path 
                                      subselect 
                                      transform 
                                      codewalker
@@ -22,12 +22,12 @@
         nowrap (contains? (set more) :nowrap)]
     (parse-lua lua-str (name-map fns nowrap))))
 
-(defmacro eval-lua [lua-str]
+(defmacro eval-lua [lua-str & more]
   `(binding [~'*ns* ~*ns*]
-    (eval (lua->clj ~lua-str))))
+    (eval (lua->clj ~lua-str ~@more))))
 
 (defmacro lua [& code]
-  (create-lua-fn
+  (eval-lua
     (let [s (as-> code c
               (transform 
                 (codewalker #(and (string? %1)

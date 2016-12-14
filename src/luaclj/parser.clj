@@ -68,7 +68,7 @@
                   `(let-mutable ~(into (vec global-var-init-statements) 
                                       `(~'_ ~@args)))
                   (first args))
-        expr (if (or  (:fns opts) (:nowrap opts))
+        expr (if (or (:fns opts) (:nowrap opts))
                fn-body
                `(fn ~'anonymous-chunk []
                 ~fn-body))
@@ -83,7 +83,9 @@
                                   `(fn ~fn-name ~fn-args (process-return ~fn-body))
                                   `(fn ~fn-args (process-return ~fn-body)))]
                     fn-stmt))
-        expr (zipwalker expr pred-fn edit-fn)]
+        expr (if (:nowrap opts)
+               `(process-return ~(zipwalker expr pred-fn edit-fn))
+               (zipwalker expr pred-fn edit-fn))]
   (debug "final chunk:" (macroexpand expr))
   (if (:fns opts)
     (map (fn [arg] `(def ~(second arg) ~(third arg)))
@@ -457,8 +459,18 @@
      
   (pprint (lua-parser (slurp-lua "resources/test/function1.lua")))
 
+(luaclj.util/process-return 
+  (luaclj.proteus/let-mutable 
+    [test1 nil a_fn nil b_fn nil test2 nil 
+     _ (do 
+         (set! test1 (clojure.core/fn test1 [] ^:stat (return 5))) 
+         (set! test2 (clojure.core/fn test2 [] ^:stat (return 7))) 
+         (do (set! a_fn (clojure.core/fn [] ^:stat (return (+ (test1) (test2)))))) 
+         (do (set! b_fn (clojure.core/fn [arg] ^:stat (return (+ arg (+ (test1) (test2))))))) 
+         ^:stat (return (+ (a_fn) (b_fn 2))))]))
+
 (def test-fn (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function.lua")))))
-((eval (parse-lua (slurp-lua "resources/test/function1.lua") {:fns true})))
+((eval (parse-lua (slurp-lua "resources/test/function1.lua") {:nowrap true})))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function2.lua")))))
 (try 
   ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function1.lua")))))
