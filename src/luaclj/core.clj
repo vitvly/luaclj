@@ -14,21 +14,17 @@
                                      transform 
                                      codewalker
                                      walker]]
-            
-            [luaclj.parser :refer [lua-parser
-                                   transform-map]]))
+            [luaclj.util :refer [name-map]]
+            [luaclj.parser :refer [parse-lua]]))
 
-(defn lua->clj [lua-str]
-  (->> lua-str
-       lua-parser
-       (insta/transform transform-map)))
+(defn lua->clj [lua-str & more]
+  (let [fns (contains? (set more) :fns)
+        nowrap (contains? (set more) :nowrap)]
+    (parse-lua lua-str (name-map fns nowrap))))
 
-(defn get-lua-fn [lua-str]
-  (eval (lua->clj lua-str)))
-
-(defmacro create-lua-fn [lua-str]
+(defmacro eval-lua [lua-str]
   `(binding [~'*ns* ~*ns*]
-    (get-lua-fn ~lua-str)))
+    (eval (lua->clj ~lua-str))))
 
 (defmacro lua [& code]
   (create-lua-fn
@@ -44,7 +40,7 @@
       (println "s:" s)
       s
       )))
-(= (first "{sdfsf") \{)
+
 (comment
 ((lua if 3 < 5 then return "true" else return "false" end)) 
 (lua
@@ -66,3 +62,4 @@ end
 return sum
 )
          )
+

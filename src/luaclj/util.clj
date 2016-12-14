@@ -29,6 +29,9 @@
   (cons 'some->> (interpose '((fn [arg] 
                               (when (sequential? arg) arg)))
                            args)))
+(defmacro name-map [& v]
+  (into {} 
+        (map #(vector (keyword %1) %1) v)))
 
 (def third #(nth %1 2))
 (def fourth #(nth %1 3))
@@ -180,6 +183,7 @@
            (str/replace #"(?s)--\[\[.*\]\]" "")
            (str/replace #"(?m)--.*$" "")
            )))
+
 (comment
   
 (str/replace (str/join "\n" ["--[[ first comment" "code" "another comment]]"]) 

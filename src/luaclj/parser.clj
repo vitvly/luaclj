@@ -55,7 +55,7 @@
     (debug "global-vars:" all-vars ":" local-vars ":" global-vars)
     global-vars))
 
-(defn chunk-fn [& args]
+(defn chunk-fn [opts & args]
   (debug "chunk-fn:" args)
   (let [global-vars (find-global-vars args)
         global-var-init-statements (mapcat identity (map #(vector %1 nil) global-vars))
@@ -64,12 +64,14 @@
                ; Remove occurrences of :local 
                second
                args)
-        fn-body (if (seq global-var-init-statements)
+        fn-body (if (and (not (:fns opts)) (seq global-var-init-statements))
                   `(let-mutable ~(into (vec global-var-init-statements) 
                                       `(~'_ ~@args)))
                   (first args))
-        expr `(fn ~'anonymous-chunk []
-                ~fn-body)
+        expr (if (or  (:fns opts) (:nowrap opts))
+               fn-body
+               `(fn ~'anonymous-chunk []
+                ~fn-body))
         pred-fn #(= (safe-some-> %1 first) 'clojure.core/fn)
         edit-fn (fn [arg]
                   (let [fn-name (when (= (count arg) 4) (second arg))
@@ -83,7 +85,10 @@
                     fn-stmt))
         expr (zipwalker expr pred-fn edit-fn)]
   (debug "final chunk:" (macroexpand expr))
-  expr))
+  (if (:fns opts)
+    (map (fn [arg] `(def ~(second arg) ~(third arg)))
+         (select [ALL (pred #(= (safe-some-> %1 first) 'set!))] expr))
+    expr)))
 
 (defn block-fn [& args]
   (debug "block-fn args:" args)
@@ -430,7 +435,12 @@
           :exp7 :exp8 :exp9 :exp10 :exp12])))
 
 
-
+(defn parse-lua [lua-str opts]
+  (->> lua-str
+       lua-parser
+       (insta/transform (assoc transform-map 
+                               :chunk 
+                               (partial chunk-fn opts)))))
 
 (comment
 (lua if i < 2 then 3 else 4 end dict = {2,3}
@@ -448,14 +458,14 @@
   (pprint (lua-parser (slurp-lua "resources/test/function1.lua")))
 
 (def test-fn (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function.lua")))))
-((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function3.lua")))))
+((eval (parse-lua (slurp-lua "resources/test/function1.lua") {:fns true})))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function2.lua")))))
 (try 
   ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function1.lua")))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
 (def fn1 (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua")))))
 (fn1)
-((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/convert_to.lua")))))
+((eval (parse-lua (slurp-lua "resources/test/convert_to.lua") {})))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/tables.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/days_in_month.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/factorial.lua")))))
@@ -481,7 +491,11 @@
   [:retstat
    "return"
    [:explist [:exp [:prefixexp [:var [:Name "v"]]]]]]]]
-
+(try (pprint (insta/transform transform-map (lua-parser "return 5*3 + 5")))
+       (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
+(luaclj.util/process-return (return (+ (* 5 3) 5)))
+  
+  
 (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/precedence.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
 
