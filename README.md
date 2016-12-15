@@ -16,15 +16,76 @@ And in target namespace:
 
 luaclj.core namespace exports several functions:
 ```clojure
-(lua/parse-lua "local v = 0; for i = 1,100 do v = v + i end return v")
+(lua/lua->clj "local v = 0; for i = 1,100 do v = v + i end return v")
 ```
 Result:
+```clojure
+(clojure.core/fn
+ anonymous-chunk
+ []
+ (luaclj.util/process-return
+  (luaclj.proteus/let-mutable
+   [v
+    0
+    _
+    (luaclj.util/process-break
+     (clojure.core/doseq
+      [i (clojure.core/range 1 (clojure.core/inc 100))]
+      (do (set! v (+ v i)))))
+    _
+    (return v)])))
+```
 
+`lua->clj` also accepts two optional keyword parameters: :fns and :nowrap:
+  - :fns tells the parser that a list of function definitions is excepted, so for instance
+```clojure
+  (lua->clj
+    "function f1(arg1, arg2)
+      return arg1 + arg2
+     end
+
+     function f2(x,y,z)
+       return x^y*z
+     end"
+    :fns)
+```
+will yield:
+```clojure
+((def
+  f1
+  (clojure.core/fn
+   f1
+   [arg1 arg2]
+   (luaclj.util/process-return (return (+ arg1 arg2)))))
+ (def
+  f2
+  (clojure.core/fn
+   f2
+   [x y z]
+   (luaclj.util/process-return (return (* (expt x y) z))))))
+```
+  - :nowrap tells parser not to wrap generated code into an anonymous fn. Compare:
+```clojure
+(lua->clj "return 8^8")
+```
+```clojure
+(clojure.core/fn anonymous-chunk [] (luaclj.util/process-return (return (expt 8 8))))
+```
+and
+```clojure
+(lua->clj "return 8^8" :nowrap)
+```
+(luaclj.util/process-return (return (expt 8 8)))
+
+eval-lua will invoke `lua->clj` and then eval it in context of current namespace
+```clojure
+(lua/eval-lua "return 2^3+3")
+```
+Result:
 
 ```clojure
-(lua/create-lua-fn "return 2^3+3")
+#function[/eval141857/anonymous-chunk--141858] ;your results may differ
 ```
-Result:
 
 # Supported language features
   - Local and global variable declarations
@@ -35,6 +96,7 @@ Result:
 
 # Not supported yet
   - metatables
+  - varargs
   - standard library functions, except for `pairs` and `ipairs`
 
 # Acknowledgments
