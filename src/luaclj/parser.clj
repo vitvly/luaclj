@@ -1,6 +1,7 @@
 (ns luaclj.parser
   (:require [instaparse.core :as insta]
             [luaclj.proteus :refer [let-mutable]]
+            [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
             [clojure.set :as set]
@@ -13,6 +14,7 @@
             [luaclj.util :refer :all]
             [com.rpl.specter :refer [select 
                                      ALL
+                                     FIRST
                                      LAST
                                      STAY
                                      select-first
@@ -26,7 +28,8 @@
                                      walker]]
             [clojure.walk :as walk :refer [prewalk postwalk]]))
 
-(def lua-parser (insta/parser (slurp-lua "resources/lua53.ebnf") :auto-whitespace :standard))
+(def lua-parser (insta/parser (slurp-lua (io/resource "lua53.ebnf")) 
+                              :auto-whitespace :standard))
 
 
 (defn find-global-vars [& args]
@@ -71,7 +74,7 @@
         expr (if (:nowrap opts)
                `(process-return ~(zipwalker expr pred-fn edit-fn))
                (zipwalker expr pred-fn edit-fn))]
-  (debug "final chunk:" (macroexpand expr))
+  (debug "final chunk:" expr)
   (if (:fns opts)
     (map (fn [arg] `(def ~(second arg) ~(third arg)))
          (select [ALL (pred #(= (safe-some-> %1 first) 'set!))] expr))
@@ -430,39 +433,154 @@
                                (partial chunk-fn opts)))))
 
 (comment
-(lua if i < 2 then 3 else 4 end dict = {2,3}
-	"text"
-	text = "more text" 
-	654
-  return dict[2])
 
+((def
+  map
+  (clojure.core/fn
+   map
+   [func tbl]
+   (luaclj.util/process-return
+    (luaclj.proteus/let-mutable
+     [newtbl
+      {}
+      _
+      (luaclj.util/process-break
+       (clojure.core/doseq
+        [[i v] (pairs tbl)]
+        (do (set! newtbl (assoc newtbl i (func v))))))
+      _
+      (return newtbl)]))))
+ (def
+  filter
+  (clojure.core/fn
+   filter
+   [func tbl]
+   (luaclj.util/process-return
+    (luaclj.proteus/let-mutable
+     [newtbl
+      {}
+      _
+      (luaclj.util/process-break
+       (clojure.core/doseq
+        [[i v] (pairs tbl)]
+        (cond (func v) (do (set! newtbl (assoc newtbl i v))))))
+      _
+      (return newtbl)]))))
+ (def
+  head
+  (clojure.core/fn
+   head
+   [tbl]
+   (luaclj.util/process-return (return (clojure.core/get tbl 1)))))
+ (def
+  tail
+  (clojure.core/fn
+   tail
+   [tbl]
+   (luaclj.util/process-return
+    (cond
+     (< ((clojure.core/get table "getn") tbl) 1)
+     (return nil)
+     :else
+     (luaclj.proteus/let-mutable
+      [newtbl
+       {}
+       tblsize
+       ((clojure.core/get table "getn") tbl)
+       i
+       2
+       _
+       (luaclj.util/process-break
+        (clojure.core/while
+         (<= i tblsize)
+         (do
+          ((clojure.core/get table "insert")
+           newtbl
+           (- i 1)
+           (clojure.core/get tbl i))
+          (do (set! i (+ i 1))))))
+       _
+       (return newtbl)])))))
+ (def
+  foldr
+  (clojure.core/fn
+   foldr
+   [func val tbl]
+   (luaclj.util/process-return
+    (do
+     (luaclj.util/process-break
+      (clojure.core/doseq
+       [[i v] (pairs tbl)]
+       (do (set! val (func val v)))))
+     (return val)))))
+ (def
+  reduce
+  (clojure.core/fn
+   reduce
+   [func tbl]
+   (luaclj.util/process-return
+    (return (foldr func (head tbl) (tail tbl))))))
+ (def
+  curry
+  (clojure.core/fn
+   curry
+   [f g]
+   (luaclj.util/process-return
+    (return
+     (clojure.core/fn
+      [\. \.]
+      (luaclj.util/process-return (return (f (g (unpack arg))))))))))
+ (def
+  bind1
+  (clojure.core/fn
+   bind1
+   [func val1]
+   (luaclj.util/process-return
+    (return
+     (clojure.core/fn
+      [val2]
+      (luaclj.util/process-return (return (func val1 val2))))))))
+ (def
+  bind2
+  (clojure.core/fn
+   bind2
+   [func val2]
+   (luaclj.util/process-return
+    (return
+     (clojure.core/fn
+      [val1]
+      (luaclj.util/process-return (return (func val1 val2))))))))
+ (def
+  expand_args
+  (clojure.core/fn
+   expand_args
+   [func]
+   (luaclj.util/process-return
+    (return
+     (clojure.core/fn
+      [\. \.]
+      (luaclj.util/process-return (return (func arg)))))))))    
 
-
-
-     (try (anonymous-chunk)
-     (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
-     
-  (pprint (lua-parser (slurp-lua "resources/test/function1.lua")))
-
-(luaclj.util/process-return 
-  (luaclj.proteus/let-mutable 
-    [test1 nil a_fn nil b_fn nil test2 nil 
-     _ (do 
-         (set! test1 (clojure.core/fn test1 [] ^:stat (return 5))) 
-         (set! test2 (clojure.core/fn test2 [] ^:stat (return 7))) 
-         (do (set! a_fn (clojure.core/fn [] ^:stat (return (+ (test1) (test2)))))) 
-         (do (set! b_fn (clojure.core/fn [arg] ^:stat (return (+ arg (+ (test1) (test2))))))) 
-         ^:stat (return (+ (a_fn) (b_fn 2))))]))
-
+(parse-lua
+  "t = {'a', 'b'}
+   return t[1]" {})
 (def test-fn (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function.lua")))))
 ((eval (parse-lua (slurp-lua "resources/test/function1.lua") {})))
-((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function2.lua")))))
+((eval (parse-lua (slurp-lua "resources/test/function2.lua") {:fns true})))
 (try 
   ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/function1.lua")))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
 (def fn1 (eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/basic1.lua")))))
-(fn1)
+(fn1) curry is
 ((eval (parse-lua (slurp-lua "resources/test/convert_to.lua") {})))
+((eval (pprint (parse-lua (slurp-lua "resources/test/functionallibrary.lua") {:fns true}))))
+
+(parse-lua
+  "f = function() return 2,'3',4 end
+   a,b,c = f()
+   return b" {})
+
+
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/tables.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/days_in_month.lua")))))
 ((eval (insta/transform transform-map (lua-parser (slurp-lua "resources/test/factorial.lua")))))

@@ -5,18 +5,20 @@ This is a Lua-to-Clojure parser. It takes Lua source code string as an input and
 # Usage
 In project.clj:
 ```clojure
-[luaclj "0.1.0"]
+[luaclj "0.1.2"]
 ```
 
 And in target namespace:
 ```clojure
 (ns example.core
-  (:require [luaclj.core :as lua]))
+  (:require [luaclj.core :refer [lua->clj eval-lua]]
+            [luaclj.library :refer :all]
+            ))
 ```
 
 luaclj.core namespace exports several functions:
 ```clojure
-(lua/lua->clj "local v = 0; for i = 1,100 do v = v + i end return v")
+(lua->clj "local v = 0; for i = 1,100 do v = v + i end return v")
 ```
 Result:
 ```clojure
@@ -79,7 +81,7 @@ and
 
 eval-lua will invoke `lua->clj` and then eval it in context of current namespace
 ```clojure
-(lua/eval-lua "return 2^3+3")
+(eval-lua "return 2^3+3")
 ```
 Result:
 
