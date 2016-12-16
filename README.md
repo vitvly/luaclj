@@ -37,6 +37,7 @@ Result:
     _
     (return v)])))
 ```
+`process-return` and `process-break` are internal macros that deal with return and break statements.
 
 `lua->clj` also accepts two optional keyword parameters: :fns and :nowrap:
 

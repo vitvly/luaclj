@@ -42,7 +42,7 @@
 
 (defmacro or= [arg values]
   `(or ~@(map #(list = arg %1) values)))
-(or= 1 [2 3 2])
+
 (defn leave [odd-or-even-kw items]
   (map second 
        (remove #((if (= odd-or-even-kw :odd) even? odd?) (first %1)) 
@@ -89,6 +89,7 @@
                          (zip/next curr-loc))]
           ;(println "next-loc:" (zip/node next-loc))
           (recur next-loc (inc cnt))))))))
+
 (defmacro process-return [code]
   ;(println "processed code in:" code)
   (let [r (if (and (sequential? code) 
@@ -119,62 +120,8 @@
                     #(= (safe-some-> %1 first) 'break) 
                     (fn [_] `(throw (luaclj.BreakException.))))
         (catch luaclj.BreakException ~'_ 1)))
-#_(defmacro process-return [code]
-  (transform 
-    (codewalker (fn [arg]
-                  (and (sequential? arg) (:stat (meta arg)))))
-    #(if (= (first %1) 'return) 
-       (second %1) %1)
-    code))
-#_(defmacro process-return [code]
-  (println "process-return IN")
-  (let [return-value (gensym)]
-    (letfn [(predicate-fn  [arg]
-              (and (sequential? arg) 
-                   (not= (first arg) 'clojure.core/fn)
-                   (:stat (meta arg))))
-            (walk-fn [arg]
-              (println "handler" arg ":" (meta arg))
-              (if (= (first arg) 'return)
-                (do
-                  (println "handler return:" (second arg))
-                  `(when-not ~return-value (set! ~return-value [~(second arg)])))
-                `(when-not ~return-value 
-                   ~(transform [ALL]
-                               #(transform (codewalker predicate-fn)
-                                           walk-fn
-                                           %1) 
-                               arg))))]
-      (println "process-return OUT")
-      `(let-mutable [~return-value nil
-         ~'_ ~(transform (codewalker predicate-fn)
-        walk-fn
-        code)]
-         (if ~return-value (first ~return-value) nil)))))
-#_(defmacro process-return [code]
-  (let-mutable [return-value (gensym)]
-    (println "process-return:" code)
-    (letfn [(predicate-fn [arg]
-              (:stat (meta arg)))
-            (handler-fn [arg]
-              (println "handler" arg ":" (meta arg))
-              (if (:stat (meta arg))
-                (if (= (first arg) 'return)
-                  (do
-                    (println "handler return:" (second arg))
-                    `(when-not ~return-value (set! ~return-value [~(second arg)])))
-                  `(when-not ~return-value 
-                     ~(transform 
-                        [ALL] 
-                        #(walk-exprs sequential? handler-fn %1) arg)))
-                (transform 
-                  [ALL] 
-                  #(walk-exprs sequential? handler-fn %1) arg)))]
-      (let [r `(let-mutable [~return-value nil
-                             ~'_ ~(walk-exprs sequential? handler-fn code)]
-                 (if ~return-value (first ~return-value) nil))]
-        (println "process-return result:" r)
-        r))))
+
+
 
 (defn slurp-lua [fname]
      (let [line-sep (System/getProperty "line.separator")
@@ -183,10 +130,3 @@
            (str/replace #"(?s)--\[\[.*\]\]" "")
            (str/replace #"(?m)--.*$" "")
            )))
-
-(comment
-  
-(str/replace (str/join "\n" ["--[[ first comment" "code" "another comment]]"]) 
-             #"(?sm)--\[\[.*\]\]"  "")
-  (slurp-lua "resources/test/days_in_month.lua")
-  )
