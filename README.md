@@ -39,7 +39,8 @@ Result:
 ```
 
 `lua->clj` also accepts two optional keyword parameters: :fns and :nowrap:
-  - `:fns` tells the parser that a list of function definitions is excepted, so for instance
+
+`:fns` tells the parser that a list of function definitions is excepted, so for instance
 ```clojure
   (lua->clj
     "function f1(arg1, arg2)
@@ -66,7 +67,8 @@ will yield:
    [x y z]
    (luaclj.util/process-return (return (* (expt x y) z))))))
 ```
-  - `:nowrap` tells parser not to wrap generated code into an anonymous fn. Compare:
+
+`:nowrap` tells parser not to wrap generated code into an anonymous fn. Compare:
 ```clojure
 (lua->clj "return 8^8")
 ```
