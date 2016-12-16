@@ -7,6 +7,9 @@
      Compiler$LocalBinding]))
 
 ;;;
+;;; This code is a modified copy of Zachary Tellman's Proteus library
+;;; (https://github.com/ztellman/proteus
+;;;
 
 (declare transform-let-mutable-form)
 
