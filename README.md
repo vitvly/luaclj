@@ -98,7 +98,7 @@ There is also a `lua` macro that can serve as an infix syntax helper. For instan
 There are some caveats, however: all commas, table constructors and accessors should be surrounded with quotes. Otherwise Clojure reader will ignore commas and complain when tables contain odd number of entries. So the following sample Lua code:
 ```lua
 sum = 0
-for j = 1 ,  99 do
+for j = 1, 99 do
   sum = sum + j
 end
 
@@ -108,7 +108,7 @@ t['a'] = 9
 has to be presented as:
 ```clojure
 sum = 0
-for j = 1 ","  99 do
+for j = 1"," 99 do
   sum = sum + j
 end
 
