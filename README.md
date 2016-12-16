@@ -39,7 +39,7 @@ Result:
 ```
 
 `lua->clj` also accepts two optional keyword parameters: :fns and :nowrap:
-  - :fns tells the parser that a list of function definitions is excepted, so for instance
+  - `:fns` tells the parser that a list of function definitions is excepted, so for instance
 ```clojure
   (lua->clj
     "function f1(arg1, arg2)
@@ -66,7 +66,7 @@ will yield:
    [x y z]
    (luaclj.util/process-return (return (* (expt x y) z))))))
 ```
-  - :nowrap tells parser not to wrap generated code into an anonymous fn. Compare:
+  - `:nowrap` tells parser not to wrap generated code into an anonymous fn. Compare:
 ```clojure
 (lua->clj "return 8^8")
 ```
@@ -79,7 +79,7 @@ and
 ```
 (luaclj.util/process-return (return (expt 8 8)))
 
-eval-lua will invoke `lua->clj` and then eval it in context of current namespace
+`eval-lua` will invoke `lua->clj` and then eval it in context of current namespace
 ```clojure
 (eval-lua "return 2^3+3")
 ```
@@ -87,6 +87,31 @@ Result:
 
 ```clojure
 #function[/eval141857/anonymous-chunk--141858] ;your results may differ
+```
+
+There is also a `lua` macro that can serve as an infix syntax helper. For instance:
+```clojure
+(lua if 3 < 5 then return "true" else return "false" end)
+```
+There are some caveats, however: all commas, table constructors and accessors should be surrounded with quotes. Otherwise Clojure reader will ignore commas and complain when tables contain odd number of entries. So the following sample Lua code:
+```lua
+sum = 0
+for j = 1 ,  99 do
+  sum = sum + j
+end
+
+t = {1, 10, 30}
+t['a'] = 9
+```
+has to be presented as:
+```clojure
+sum = 0
+for j = 1 ","  99 do
+  sum = sum + j
+end
+
+t = "{1, 10, 30}"
+t"['a']" = 9
 ```
 
 # Supported language features
