@@ -272,6 +272,8 @@
               (second args)
               (= "break" (first args))
               '(break)
+              (= ";" (first args))
+              []
               :else
               (first args))]
     (debug "stat-fn return:" r)
@@ -425,12 +427,12 @@
           :exp7 :exp8 :exp9 :exp10 :exp12])))
 
 
-(defn parse-lua [lua-str opts]
+(defn parse-lua [lua-str & opts]
   (->> lua-str
        lua-parser
        (insta/transform (assoc transform-map 
                                :chunk 
-                               (partial chunk-fn opts)))))
+                               (partial chunk-fn (or (first opts) {}))))))
 
 (comment
 
@@ -649,5 +651,6 @@
   (try (pprint (insta/transform transform-map (lua-parser (slurp-lua "resources/test/for.lua"))))
        (catch Exception ex (clojure.stacktrace/print-stack-trace ex)))
   (pprint tree)
+  ((eval (parse-lua "local v = 0; for i = 1,100 do v = v + i end return v")))
   (prewalk #(do (debug %1) %1) tree)
          )
