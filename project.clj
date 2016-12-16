@@ -1,4 +1,4 @@
-(defproject luaclj "0.1.2"
+(defproject luaclj "0.1.3"
   :description "A Lua-to-Clojure parser"
   :url "https://github.com/siphiuel/luaclj"
   :license {:name "MIT License"
