@@ -5,7 +5,7 @@ This is a Lua-to-Clojure parser. It takes Lua source code string as an input and
 # Usage
 In project.clj:
 ```clojure
-[luaclj "0.1.2"]
+[luaclj "0.1.3"]
 ```
 
 And in target namespace:
