@@ -1,6 +1,11 @@
 # luaclj
 
-This is a Lua-to-Clojure parser. It takes Lua source code string as an input and produces eval'able Clojure code.
+This is a Lua-to-Clojure parser. It takes Lua source code string as an input and produces eval'able Clojure code. This is a work-in-progress, and some language features are not supported currently (and maybe never will).
+
+# Why?
+This library can be used when you need to express certain logic in a very simple imperative language. These bits of logic can be then externalised into files or directly used inside a Clojure program via a macro. 
+
+There is a very transparent boundary between Lua and Clojure functions when using luaclj: all Lua functions become Clojure functions, and all Clojure functions can be directly invoked in Lua code. Lua tables become Clojure maps, and vice versa.
 
 # Usage
 In project.clj:
@@ -39,7 +44,7 @@ Result:
 ```
 `process-return` and `process-break` are internal macros that deal with return and break statements.
 
-`lua->clj` also accepts two optional keyword parameters: :fns and :nowrap:
+`lua->clj` also accepts two optional keyword parameters: `:fns` and `:nowrap`:
 
 `:fns` tells the parser that a list of function definitions is excepted, so for instance
 ```clojure
@@ -129,6 +134,7 @@ t"['a']" = 9
   - varargs
   - standard library functions, except for `pairs` and `ipairs`
   - multiple return values from functions
+  - labels
 
 # Acknowledgments
 Special thanks goes to Mark Engelberg ([Instaparse](https://github.com/Engelberg/instaparse)), Zach Tellman ([Proteus](https://github.com/ztellman/proteus)), and Nathan Marz ([Specter](https://github.com/nathanmarz/specter/)). The library incorporates a slightly modified version of Proteus.
