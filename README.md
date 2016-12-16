@@ -11,7 +11,7 @@ In project.clj:
 And in target namespace:
 ```clojure
 (ns example.core
-  (:require [luaclj.core :refer [lua->clj eval-lua]]
+  (:require [luaclj.core :refer :all]
             [luaclj.library :refer :all]
             ))
 ```
