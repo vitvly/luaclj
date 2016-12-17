@@ -1,6 +1,6 @@
 # luaclj
 
-This is a Lua-to-Clojure parser. It takes Lua source code string as an input and produces eval'able Clojure code. This is a work-in-progress, and some language features are not supported currently (and maybe never will).
+This is a Lua-to-Clojure parser. It takes Lua source code string as an input and produces eval'able Clojure code. This is a work-in-progress, and some language features are not supported currently (and maybe never will). Targeted Lua version is 5.3.
 
 # Why?
 This library can be used when you need to express certain logic in a very simple imperative language. These bits of logic can be then externalised into files or directly used inside a Clojure program via a macro. 
